@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useMemo } from "react";
 
-/*  MOTOR DETERMINISTA DE FINANZAS PERSONALES · v1.2
-    Nombres editables · cuotas por deuda · horizonte de meses con escenarios · proyección.
-    Sin IA, sin red. Estilos inline → portable a Next.js/Vercel sin configurar nada. */
+/*  MOTOR DETERMINISTA DE FINANZAS PERSONALES · v1.3
+    Nombres editables (con affordance) · ámbito Cía/Pers · balance tipo matriz · horizonte · proyección.
+    Sin IA, sin red. Estilos inline → portable a Next.js/Vercel. */
 
 const P = {
   ink: "#16211C", paper: "#F4F5F1", panel: "#FFFFFF", teal: "#0B5D4E",
@@ -20,7 +20,7 @@ const CSS = `
 .app{min-height:100vh;width:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1120px;margin:0 auto;padding:32px 20px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.gmain{display:grid;grid-template-columns:minmax(0,340px) 1fr;gap:20px;align-items:start}
+.gmain{display:grid;grid-template-columns:minmax(0,360px) 1fr;gap:20px;align-items:start}
 .gcol{display:grid;gap:20px}
 .cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -29,15 +29,19 @@ const CSS = `
 .h2{font-size:15px;font-weight:600;color:${P.ink};margin:0 0 12px}
 .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0}
 input,select{outline:none;font-size:13px;border-radius:6px;border:1px solid ${P.line};background:${P.faint};color:${P.ink}}
-.num{width:88px;text-align:right;padding:5px 8px;font-family:ui-monospace,Menlo,monospace}
-.nam{flex:1;min-width:0;padding:5px 8px;background:transparent;border:1px solid transparent}
-.nam:focus{background:${P.faint};border-color:${P.line}}
-input:focus,select:focus{box-shadow:0 0 0 2px rgba(11,93,78,.25)}
+.num{width:84px;text-align:right;padding:5px 8px;font-family:ui-monospace,Menlo,monospace}
+.nam{flex:1;min-width:0;padding:4px 6px;background:transparent;border:none;border-bottom:1px dashed #B9C0B6;border-radius:0;font-size:13px}
+.nam:focus{background:${P.faint};border-bottom:1px solid ${P.teal}}
+input:focus,select:focus{box-shadow:0 0 0 2px rgba(11,93,78,.22)}
 .btn{cursor:pointer;font-size:12px;border:1px dashed ${P.line};background:#fff;color:${P.teal};border-radius:6px;padding:5px 8px}
 .x{cursor:pointer;border:none;background:transparent;color:${P.muted};font-size:15px;line-height:1;padding:0 2px}
 .scroll{max-height:210px;overflow:auto;padding-right:4px;margin-right:-4px}
 .hz{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end}
 .hcell{cursor:pointer;text-align:center;user-select:none}
+.amb{cursor:pointer;border:none;font-size:11px;padding:2px 7px}
+.mtx{width:100%;border-collapse:collapse;font-size:12px}
+.mtx td,.mtx th{padding:5px 6px;text-align:right}
+.mtx th:first-child,.mtx td:first-child{text-align:left;color:${P.muted}}
 @media(max-width:860px){.gmain{grid-template-columns:1fr}.cards3{grid-template-columns:1fr}.g2{grid-template-columns:1fr}}
 `;
 
@@ -54,8 +58,15 @@ function runEngine(inp) {
   const puntoEq = (gastos + inp.backTax) / (1 - inp.reserva);
   const trabajosEq = inp.laborPorTrabajo > 0 ? puntoEq / inp.laborPorTrabajo : 0;
   const mesesFondo = gastos > 0 ? inp.ahorroLiquido / gastos : 0;
-  const totalPagar = inp.deudas.reduce((a, d) => a + (+d.saldo || 0), 0);
-  const deudaNeta = totalPagar - inp.porCobrar;
+
+  // Balance por ámbito (matriz)
+  const sum = (arr, key, amb) => arr.filter((x) => (amb ? x.ambito === amb : true)).reduce((a, x) => a + (+x[key] || 0), 0);
+  const pagarCia = sum(inp.deudas, "saldo", "compania"), pagarPers = sum(inp.deudas, "saldo", "personal");
+  const cobrarCia = sum(inp.porCobrar, "monto", "compania"), cobrarPers = sum(inp.porCobrar, "monto", "personal");
+  const totalPagar = pagarCia + pagarPers, totalCobrar = cobrarCia + cobrarPers;
+  const deudaNeta = totalPagar - totalCobrar;
+  const matriz = { pagarCia, pagarPers, totalPagar, cobrarCia, cobrarPers, totalCobrar, deudaNeta };
+
   const toxicas = inp.deudas.filter((d) => +d.saldo > 0 && (d.tasa >= 0.4 || d.tipo === "rotativa" || d.tipo === "impuesto"));
   const cargaViv = prom.disp > 0 ? vivienda / prom.disp : 0;
 
@@ -83,11 +94,11 @@ function runEngine(inp) {
   if (toxicas.length) prio.push({ t: "Priorizar la deuda cara / fiscal", d: `${toxicas.map((d) => d.n).join(", ")} por encima de las deudas sin interés.` });
   if (malo.allIn < 0 || trabajosEq > 2) prio.push({ t: "Subir el piso de ingresos", d: `Equilibrio en ~${trabajosEq.toFixed(1)} trabajos/mes; apuntar a ${money(inp.ingreso.bueno)} de labor.` });
 
-  // ── PROYECCIÓN sobre el horizonte ──
+  // ── PROYECCIÓN ──
   const colchonFloor = 2000;
   let bal = inp.ahorroLiquido;
   const deudas = inp.deudas.map((d) => ({ ...d, saldo: +d.saldo || 0 }));
-  const arRest = Math.max(0, inp.porCobrar - inp.porCobrarCorto);
+  const arRest = Math.max(0, totalCobrar - inp.porCobrarCorto);
   const proj = inp.horizonte.map((h, m) => {
     const income = +inp.ingreso[h.sc] || 0;
     const reservaAmt = income * inp.reserva;
@@ -108,7 +119,7 @@ function runEngine(inp) {
   const colchon1 = proj.find((p) => p.colMeses >= 1);
   const bajoCero = proj.find((p) => p.bal < 0);
 
-  return { gastos, esc, prom, malo, tasaAhorro, trabajosEq, mesesFondo, deudaNeta, toxicas, gates, etapa, flags, prio,
+  return { gastos, esc, prom, malo, tasaAhorro, trabajosEq, mesesFondo, matriz, toxicas, gates, etapa, flags, prio,
     proj, mile: { libre, colchon1, bajoCero } };
 }
 
@@ -121,16 +132,27 @@ const Panel = ({ eb, title, children, style }) => (
   </section>
 );
 const sev = (s) => (s === "critical" ? P.critical : s === "caution" ? P.caution : P.healthy);
+const Amb = ({ v, onChange }) => (
+  <span style={{ display: "inline-flex", border: `1px solid ${P.line}`, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
+    {["compania", "personal"].map((a) => (
+      <button key={a} className="amb" onClick={() => onChange(a)} style={{ background: v === a ? P.teal : "#fff", color: v === a ? "#fff" : P.muted }}>{a === "compania" ? "Cía" : "Pers"}</button>
+    ))}
+  </span>
+);
 
 export default function App() {
   const [inp, setInp] = useState({
     ingreso: { malo: 6000, prom: 8500, bueno: 12500 }, laborPorTrabajo: 3200, reserva: 0.24,
-    backTax: 700, ahorroLiquido: 0, porCobrar: 10600, porCobrarCorto: 7300,
+    backTax: 700, ahorroLiquido: 0, porCobrarCorto: 7300,
     gastosControlados: true, objetivoFE: 6, objetivoAhorro: 0.2,
     deudas: [
-      { id: uid(), n: "Impuestos 22–25 (IRS)", saldo: 25000, cuota: 700, tasa: 0, tipo: "impuesto" },
-      { id: uid(), n: "Vendors / crew 86LAB", saldo: 24167.67, cuota: 0, tasa: 0, tipo: "personal" },
-      { id: uid(), n: "Deudas personales", saldo: 13900, cuota: 0, tasa: 0, tipo: "personal" },
+      { id: uid(), n: "Impuestos 22–25 (IRS)", saldo: 25000, cuota: 700, tasa: 0, tipo: "impuesto", ambito: "compania" },
+      { id: uid(), n: "Vendors / crew 86LAB", saldo: 24167.67, cuota: 0, tasa: 0, tipo: "personal", ambito: "compania" },
+      { id: uid(), n: "Deudas personales", saldo: 13900, cuota: 0, tasa: 0, tipo: "personal", ambito: "personal" },
+    ],
+    porCobrar: [
+      { id: uid(), n: "Clientes compañía", monto: 3000, ambito: "compania" },
+      { id: uid(), n: "Clientes personales", monto: 7600, ambito: "personal" },
     ],
     gastosItems: [
       { id: uid(), n: "Renta", m: 1450, viv: true }, { id: uid(), n: "Comida / vida diaria", m: 2000 },
@@ -151,9 +173,10 @@ export default function App() {
   const cycle = (i) => setInp((s) => { const h = [...s.horizonte]; const o = ["malo", "prom", "bueno"]; h[i] = { sc: o[(o.indexOf(h[i].sc) + 1) % 3] }; return { ...s, horizonte: h }; });
 
   const r = useMemo(() => runEngine(inp), [inp]);
+  const M = r.matriz;
   const maxAbs = Math.max(...r.esc.map((e) => Math.abs(e.allIn)), 1);
   const maxDeuda = Math.max(...r.proj.map((p) => p.deudaTot), 1);
-  const startM = 8; // Sep (Ago=7 → próximo mes)
+  const startM = 8;
 
   return (
     <div className="app" style={{ background: P.paper, color: P.ink }}>
@@ -163,7 +186,7 @@ export default function App() {
           <div className="eb mono">Motor determinista · sin IA · corre en el dispositivo</div>
           <h1 style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1, margin: 0 }}>No te dice cómo gastaste. Te dice qué hacer primero.</h1>
           <p style={{ marginTop: 8, fontSize: 14, color: P.muted, maxWidth: 640 }}>
-            Caso: <b style={{ color: P.ink }}>Gabriel B.</b> — self-employed, Miami. Editá nombres, montos y el escenario de cada mes; todo se recalcula al instante.
+            Caso: <b style={{ color: P.ink }}>Gabriel B.</b> — self-employed, Miami. Cada nombre, monto y escenario es editable; todo se recalcula al instante.
           </p>
         </header>
 
@@ -178,7 +201,7 @@ export default function App() {
                 </div>
               ))}
               <div style={{ borderTop: `1px solid ${P.line}`, marginTop: 6, paddingTop: 6 }}>
-                <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Reserva fiscal (%)</span><input className="num mono" type="number" value={Math.round(inp.reserva * 100)} onChange={(e) => set({ reserva: (+e.target.value || 0) / 100 })} /></div>
+                <div className="row"><span style={{ fontSize: 13, color: P.muted }} title="17% impuestos + 2% imprevistos + 5% colchón. Se aparta apenas cobra.">Reserva fiscal (%) ⓘ</span><input className="num mono" type="number" value={Math.round(inp.reserva * 100)} onChange={(e) => set({ reserva: (+e.target.value || 0) / 100 })} /></div>
                 <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ahorro líquido hoy</span><input className="num mono" type="number" value={inp.ahorroLiquido} onChange={(e) => set({ ahorroLiquido: +e.target.value || 0 })} /></div>
               </div>
             </Panel>
@@ -196,24 +219,49 @@ export default function App() {
               <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("gastosItems", { n: "Nueva partida", m: 0 })}>+ Agregar partida</button>
             </Panel>
 
-            <Panel eb="Balance" title="Deudas · nombre y cuota editables">
+            {/* MATRIZ */}
+            <Panel eb="Balance" title="Tu panorama real">
+              <table className="mtx">
+                <thead><tr><th></th><th>Compañía</th><th>Personal</th><th>Total</th></tr></thead>
+                <tbody>
+                  <tr><td>Por pagar</td><td className="mono">{money(M.pagarCia)}</td><td className="mono">{money(M.pagarPers)}</td><td className="mono" style={{ color: P.ink, fontWeight: 600 }}>{money(M.totalPagar)}</td></tr>
+                  <tr><td>Por cobrar</td><td className="mono">{money(M.cobrarCia)}</td><td className="mono">{money(M.cobrarPers)}</td><td className="mono" style={{ color: P.ink, fontWeight: 600 }}>{money(M.totalCobrar)}</td></tr>
+                  <tr style={{ borderTop: `1px solid ${P.line}` }}><td style={{ color: P.ink }}>Deuda neta</td><td></td><td></td><td className="mono" style={{ color: P.critical, fontWeight: 600 }}>{money(M.deudaNeta)}</td></tr>
+                </tbody>
+              </table>
+            </Panel>
+
+            <Panel eb="Cuentas por pagar" title="Deudas · editá nombre, ámbito y cuota">
               {inp.deudas.map((d) => (
                 <div key={d.id} style={{ padding: "6px 0", borderBottom: `1px solid ${P.faint}` }}>
                   <div className="row" style={{ padding: "2px 0" }}>
                     <input className="nam" value={d.n} onChange={(e) => editItem("deudas", d.id, { n: e.target.value })} />
+                    <Amb v={d.ambito} onChange={(a) => editItem("deudas", d.id, { ambito: a })} />
                     <button className="x" onClick={() => delItem("deudas", d.id)}>×</button>
                   </div>
                   <div className="row" style={{ padding: "2px 0" }}>
                     <span style={{ fontSize: 12, color: P.muted }}>saldo <input className="num mono" type="number" value={d.saldo} onChange={(e) => editItem("deudas", d.id, { saldo: +e.target.value || 0 })} /></span>
-                    <span style={{ fontSize: 12, color: P.muted }}>cuota $<input className="num mono" style={{ width: 60 }} type="number" value={d.cuota} onChange={(e) => editItem("deudas", d.id, { cuota: +e.target.value || 0 })} /></span>
+                    <span style={{ fontSize: 12, color: P.muted }}>cuota $<input className="num mono" style={{ width: 58 }} type="number" value={d.cuota} onChange={(e) => editItem("deudas", d.id, { cuota: +e.target.value || 0 })} /></span>
                   </div>
                   {d.cuota > 0 && <div className="mono" style={{ fontSize: 11, color: P.teal, textAlign: "right" }}>≈ {Math.ceil(d.saldo / d.cuota)} cuotas</div>}
                 </div>
               ))}
-              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("deudas", { n: "Nueva deuda", saldo: 0, cuota: 0, tasa: 0, tipo: "personal" })}>+ Agregar deuda</button>
-              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${P.line}` }}>
-                <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Por cobrar (total)</span><input className="num mono" type="number" value={inp.porCobrar} onChange={(e) => set({ porCobrar: +e.target.value || 0 })} /></div>
-                <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Por cobrar (corto plazo)</span><input className="num mono" type="number" value={inp.porCobrarCorto} onChange={(e) => set({ porCobrarCorto: +e.target.value || 0 })} /></div>
+              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("deudas", { n: "Nueva deuda", saldo: 0, cuota: 0, tasa: 0, tipo: "personal", ambito: "personal" })}>+ Agregar deuda</button>
+            </Panel>
+
+            <Panel eb="Cuentas por cobrar" title="Lo que te deben">
+              {inp.porCobrar.map((c) => (
+                <div className="row" key={c.id}>
+                  <input className="nam" value={c.n} onChange={(e) => editItem("porCobrar", c.id, { n: e.target.value })} />
+                  <Amb v={c.ambito} onChange={(a) => editItem("porCobrar", c.id, { ambito: a })} />
+                  <span className="mono" style={{ color: P.muted, fontSize: 13 }}>$<input className="num mono" type="number" value={c.monto} onChange={(e) => editItem("porCobrar", c.id, { monto: +e.target.value || 0 })} /></span>
+                  <button className="x" onClick={() => delItem("porCobrar", c.id)}>×</button>
+                </div>
+              ))}
+              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("porCobrar", { n: "Nuevo cobro", monto: 0, ambito: "personal" })}>+ Agregar cobro</button>
+              <div className="row" style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${P.line}` }}>
+                <span style={{ fontSize: 13, color: P.muted }} title="Cuánto de lo por cobrar entra en los próximos 1–2 meses">Cobrable corto plazo ⓘ</span>
+                <span className="mono" style={{ color: P.muted, fontSize: 13 }}>$<input className="num mono" type="number" value={inp.porCobrarCorto} onChange={(e) => set({ porCobrarCorto: +e.target.value || 0 })} /></span>
               </div>
             </Panel>
           </div>
@@ -234,11 +282,10 @@ export default function App() {
                 })}
               </div>
               <p style={{ fontSize: 13, color: P.muted, margin: 0 }}>
-                Se estresa contra el <b style={{ color: P.critical }}>mes malo</b>, no el promedio. Equilibrio en <b className="mono" style={{ color: P.ink }}>{r.trabajosEq.toFixed(1)}</b> trabajos/mes · deuda neta <b className="mono" style={{ color: P.ink }}>{money(r.deudaNeta)}</b>.
+                Se estresa contra el <b style={{ color: P.critical }}>mes malo</b>, no el promedio. Equilibrio en <b className="mono" style={{ color: P.ink }}>{r.trabajosEq.toFixed(1)}</b> trabajos/mes · deuda neta <b className="mono" style={{ color: P.ink }}>{money(M.deudaNeta)}</b>.
               </p>
             </Panel>
 
-            {/* HORIZONTE + PROYECCIÓN */}
             <Panel eb="Horizonte · cliqueá cada mes para cambiar su escenario" title="Proyección: cómo baja la deuda mes a mes">
               <div className="hz">
                 {r.proj.map((p, i) => {
@@ -262,7 +309,6 @@ export default function App() {
               </div>
             </Panel>
 
-            {/* LADDER */}
             <Panel eb="Escalera de diagnóstico" title="Ordenar → Estabilizar → Crecer">
               <div style={{ position: "relative", paddingLeft: 24 }}>
                 <div style={{ position: "absolute", left: 9, top: 8, bottom: 8, width: 1, background: P.line }} />
