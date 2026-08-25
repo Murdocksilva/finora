@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 
 /*  PLANIFICADOR FINANCIERO DETERMINISTA · v2.0
     Multi-usuario · 4 escenarios · categorías · cronogramas y % mes a mes · metas · sugerencias
@@ -23,6 +23,7 @@ const CATCOLORS = ["#0B5D4E", "#B8791E", "#A8412F", "#4E8A6B", "#4A6FA5", "#9C5D
 const money = (n) => (n < 0 ? "−" : "") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
 const pct = (n) => Math.round(n * 100) + "%";
 let _id = 0; const uid = () => ++_id;
+const bumpId = (n) => { if (n > _id) _id = n; };
 const z = () => Array(H).fill(0);
 const pad = (a) => { const b = a.slice(0, H); while (b.length < H) b.push(0); return b; };
 
@@ -92,6 +93,30 @@ const gabrielInp = () => ({
   metas: [],
   horizonte: Array.from({ length: H }, (_, i) => ({ sc: i === 0 ? "e4" : i === 1 ? "e4" : i === 2 ? "e2" : i === 3 ? "e1" : "e2" })),
 });
+
+/* ─────────────── PERSISTENCIA (respaldo + autoguardado) ─────────────── */
+const LSKEY = "finora_profiles_v2";
+function maxIdIn(o) { let mx = 0; const w = (x) => { if (Array.isArray(x)) x.forEach(w); else if (x && typeof x === "object") { if (typeof x.id === "number") mx = Math.max(mx, x.id); Object.values(x).forEach(w); } }; w(o); return mx; }
+function padH(h) { const b = Array.from({ length: H }, () => ({ sc: "e2" })); for (let k = 0; k < Math.min(h.length, H); k++) if (h[k] && h[k].sc) b[k] = { sc: h[k].sc }; return b; }
+function normInp(inp) {
+  inp = inp || {}; const x = { ...blankInp(), ...inp };
+  x.ingreso = { e1: 0, e2: 0, e3: 0, e4: 0, ...(inp.ingreso || {}) };
+  x.reserva = Array.isArray(inp.reserva) ? pad(inp.reserva.map(Number)) : Array(H).fill(typeof inp.reserva === "number" ? inp.reserva : 0.24);
+  x.ahorro = Array.isArray(inp.ahorro) ? pad(inp.ahorro.map(Number)) : Array(H).fill(0);
+  x.categorias = (inp.categorias && inp.categorias.length) ? inp.categorias : [...CATS0];
+  x.gastosItems = (inp.gastosItems || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", m: 0, cat: CATS0[0], ...g }));
+  x.deudas = (inp.deudas || []).map((d) => ({ id: typeof d.id === "number" ? d.id : uid(), n: "", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", ...d, pagos: pad((d.pagos || []).map(Number)) }));
+  x.porCobrar = (inp.porCobrar || []).map((c) => ({ id: typeof c.id === "number" ? c.id : uid(), n: "", monto: 0, ambito: "personal", cat: "INVERSIONES", ...c, cobros: pad((c.cobros || []).map(Number)) }));
+  x.metas = (inp.metas || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", monto: 0, mesObjetivo: 11, ...g }));
+  x.horizonte = (Array.isArray(inp.horizonte) && inp.horizonte.length) ? padH(inp.horizonte) : blankInp().horizonte;
+  return x;
+}
+function parseProfiles(d) {
+  if (!Array.isArray(d) || !d.length) return null;
+  bumpId(maxIdIn(d));
+  return d.map((p) => ({ id: typeof p.id === "number" ? p.id : uid(), nombre: p.nombre || "Usuario", inp: normInp(p.inp) }));
+}
+function loadSaved() { try { if (typeof window !== "undefined" && window.localStorage) { const s = window.localStorage.getItem(LSKEY); if (s) return parseProfiles(JSON.parse(s)); } } catch (e) {} return null; }
 
 /* ─────────────── MOTOR ─────────────── */
 function runEngine(i) {
@@ -263,7 +288,7 @@ const MonthSel = ({ v, onChange }) => (
 );
 
 export default function App() {
-  const [profiles, setProfiles] = useState(() => [{ id: uid(), nombre: "Gabriel", inp: gabrielInp() }]);
+  const [profiles, setProfiles] = useState(() => loadSaved() || [{ id: uid(), nombre: "Gabriel", inp: gabrielInp() }]);
   const [activeId, setActiveId] = useState(() => profiles[0].id);
   const active = profiles.find((p) => p.id === activeId) || profiles[0];
   const i = active.inp;
@@ -284,6 +309,12 @@ export default function App() {
   const newProfile = () => { const id = uid(); setProfiles((ps) => [...ps, { id, nombre: "Nuevo usuario", inp: blankInp() }]); setActiveId(id); };
   const renameProfile = (nombre) => setProfiles((ps) => ps.map((p) => (p.id === activeId ? { ...p, nombre } : p)));
   const delProfile = () => setProfiles((ps) => { if (ps.length <= 1) return ps; const rest = ps.filter((p) => p.id !== activeId); setActiveId(rest[0].id); return rest; });
+
+  // Autoguardado en el navegador (persiste entre recargas y deploys)
+  useEffect(() => { try { if (typeof window !== "undefined" && window.localStorage) window.localStorage.setItem(LSKEY, JSON.stringify(profiles)); } catch (e) {} }, [profiles]);
+  const fileRef = React.useRef(null);
+  const exportar = () => { try { const blob = new Blob([JSON.stringify(profiles, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "finora-datos.json"; a.click(); URL.revokeObjectURL(url); } catch (e) {} };
+  const importar = (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const norm = parseProfiles(JSON.parse(rd.result)); if (norm) { setProfiles(norm); setActiveId(norm[0].id); } else alert("El archivo no tiene el formato esperado."); } catch (err) { alert("No se pudo leer el archivo."); } }; rd.readAsText(f); e.target.value = ""; };
 
   const r = useMemo(() => runEngine(i), [i]);
   const M = r.matriz;
@@ -320,6 +351,11 @@ export default function App() {
           ))}
           <button className="btn" style={{ borderRadius: 20 }} onClick={newProfile}>+ Nuevo usuario</button>
           {profiles.length > 1 && <button className="btn" style={{ borderRadius: 20, color: P.critical, borderColor: P.critical }} onClick={delProfile}>Borrar</button>}
+          <span style={{ width: 1, height: 18, background: P.line, margin: "0 2px" }} />
+          <button className="btn" style={{ borderRadius: 20 }} onClick={exportar}>⬇ Exportar respaldo</button>
+          <button className="btn" style={{ borderRadius: 20 }} onClick={() => fileRef.current && fileRef.current.click()}>⬆ Importar</button>
+          <input ref={fileRef} type="file" accept="application/json,.json" onChange={importar} style={{ display: "none" }} />
+          <span className="mono" style={{ fontSize: 10, color: P.healthy }}>guardado automático ✓</span>
         </div>
 
         {/* NOMBRE GRANDE */}
