@@ -170,25 +170,31 @@ function runEngine(i) {
   // ── FLUJO mes a mes (motor unificado) ──
   const deudas = i.deudas.map((d) => ({ ...d, rem: +d.saldo || 0 }));
   const cobrosSt = i.porCobrar.map((c) => ({ ...c, rem: +c.monto || 0 }));
-  let ahorroAcum = i.ahorroLiquido, deudaPagAcum = 0, reservaAcum = 0, metasAcum = 0, deficitAcum = 0;
+  let ahorroAcum = i.ahorroLiquido, sobranteAcum = 0, deudaPagAcum = 0, reservaAcum = 0, metasAcum = 0, deficitAcum = 0, deficitPrev = 0;
   const flujo = i.horizonte.map((h, m) => {
     const salario = +i.ingreso[h.sc] || 0;
     let cobros = 0; cobrosSt.forEach((c) => { const g = Math.min(c.cobros?.[m] || 0, c.rem); c.rem -= g; cobros += g; });
     let deuda = 0; deudas.forEach((d) => { const p = Math.min(d.pagos?.[m] || 0, d.rem); d.rem -= p; deuda += p; });
     const metasMes = i.metas.reduce((a, g) => a + (m <= g.mesObjetivo && g.mesObjetivo >= 0 ? (+g.monto || 0) / (g.mesObjetivo + 1) : 0), 0);
-    const base = salario + cobros - gastos - deuda - metasMes;
+    const tarjeta = deficitPrev; // déficit del mes anterior, se paga como tarjeta este mes
+    const base = salario + cobros - gastos - deuda - metasMes - tarjeta;
     const tgtR = salario * (i.reserva[m] || 0), tgtA = salario * (i.ahorro[m] || 0);
     let reserva = 0, ahorro = 0, sobrante = 0, deficit = 0;
     if (base >= 0) {
       reserva = Math.min(base, tgtR); let r1 = base - reserva;
       ahorro = Math.min(r1, tgtA); sobrante = r1 - ahorro;
     } else deficit = base;
-    ahorroAcum += ahorro; reservaAcum += reserva; metasAcum += metasMes; deudaPagAcum += deuda; if (deficit < 0) deficitAcum += -deficit;
+    deficitPrev = deficit < 0 ? -deficit : 0; // se arrastra al mes siguiente
+    ahorroAcum += ahorro; sobranteAcum += sobrante; reservaAcum += reserva; metasAcum += metasMes; deudaPagAcum += deuda; if (deficit < 0) deficitAcum += -deficit;
+    const patrimonioAcum = ahorroAcum + sobranteAcum;
     const deudaTot = deudas.reduce((a, d) => a + Math.max(0, d.rem), 0);
-    return { m, sc: h.sc, salario, cobros, gastos, deuda, metasMes, reserva, ahorro, sobrante, deficit, deudaTot, ahorroAcum, deudaPagAcum, reservaAcum, metasAcum, deficitAcum };
+    const cobrosPend = cobrosSt.reduce((a, c) => a + Math.max(0, c.rem), 0);
+    const cardCarry = deficitPrev;
+    const patrimonioNeto = patrimonioAcum + reservaAcum + cobrosPend - deudaTot - cardCarry;
+    return { m, sc: h.sc, salario, cobros, gastos, deuda, metasMes, tarjeta, reserva, ahorro, sobrante, deficit, deudaTot, cobrosPend, cardCarry, patrimonioNeto, ahorroAcum, sobranteAcum, patrimonioAcum, deudaPagAcum, reservaAcum, metasAcum, deficitAcum };
   });
   const libre = anyIncome ? flujo.find((f) => f.deudaTot <= 0) : null;
-  const colchon1 = anyIncome ? flujo.find((f) => f.ahorroAcum >= gastos) : null;
+  const colchon1 = anyIncome ? flujo.find((f) => f.patrimonioAcum >= gastos) : null;
   const bajoCero = anyIncome ? flujo.find((f) => f.deficit < 0) : null;
 
   // Gastos por categoría (base mensual)
@@ -292,7 +298,7 @@ export default function App() {
   const [activeId, setActiveId] = useState(() => profiles[0].id);
   const active = profiles.find((p) => p.id === activeId) || profiles[0];
   const i = active.inp;
-  const [pieMes, setPieMes] = useState(5), [ahoMes, setAhoMes] = useState(11), [deuMes, setDeuMes] = useState(11);
+  const [pieMes, setPieMes] = useState(5), [ahoMes, setAhoMes] = useState(11), [deuMes, setDeuMes] = useState(11), [netoMes, setNetoMes] = useState(11);
   const [newCat, setNewCat] = useState("");
 
   const updInp = (fn) => setProfiles((ps) => ps.map((p) => (p.id === activeId ? { ...p, inp: fn(p.inp) } : p)));
@@ -333,7 +339,12 @@ export default function App() {
     return { arr, tot, data: arr.map(([c, v], k) => ({ label: c, value: v, color: CATCOLORS[k % CATCOLORS.length] })) };
   }, [i, pieMes]);
   const ahoData = r.flujo.slice(0, ahoMes + 1);
-  const ahoMax = Math.max(...ahoData.map((f) => f.ahorroAcum), 1);
+  const ahoMax = Math.max(...ahoData.map((f) => f.ahorroAcum + f.sobranteAcum + f.reservaAcum), 1);
+  const netoData = r.flujo.slice(0, netoMes + 1);
+  const netoAbsMax = Math.max(...netoData.map((f) => Math.abs(f.patrimonioNeto)), 1);
+  const fNeto = r.flujo[netoMes] || {};
+  const activos = (fNeto.patrimonioAcum || 0) + (fNeto.reservaAcum || 0) + (fNeto.cobrosPend || 0);
+  const pasivos = (fNeto.deudaTot || 0) + (fNeto.cardCarry || 0);
   const deuData = r.flujo.slice(0, deuMes + 1);
   const deuPagMax = Math.max(...deuData.map((f) => f.deuda), 1);
   const deuTotAtMes = r.flujo[deuMes]?.deudaTot || 0;
@@ -496,7 +507,7 @@ export default function App() {
             <Panel eb="Flujo mes a mes" title="Detalle de resultados en totales">
               <div style={{ overflow: "auto", maxHeight: 340 }}>
                 <table className="tbl">
-                  <thead><tr><th>Mes</th><th>Salario</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Metas</th><th>Reserva</th><th>Ahorro</th><th>Resultado</th></tr></thead>
+                  <thead><tr><th>Mes</th><th>Salario</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Déf. ant.</th><th>Metas</th><th>Reserva</th><th>Ahorro</th><th>Resultado</th></tr></thead>
                   <tbody>
                     {r.flujo.map((f) => {
                       const res = f.deficit < 0 ? f.deficit : f.sobrante;
@@ -508,6 +519,7 @@ export default function App() {
                           <td className="mono" style={{ color: P.healthy }}>{f.cobros ? money(f.cobros) : "·"}</td>
                           <td className="mono" style={{ color: P.critical }}>−{money(f.gastos)}</td>
                           <td className="mono" style={{ color: P.critical }}>{f.deuda ? "−" + money(f.deuda) : "·"}</td>
+                          <td className="mono" style={{ color: P.critical }}>{f.tarjeta ? "−" + money(f.tarjeta) : "·"}</td>
                           <td className="mono" style={{ color: P.critical }}>{f.metasMes ? "−" + money(f.metasMes) : "·"}</td>
                           <td className="mono" style={{ color: P.muted }}>{f.reserva ? money(f.reserva) : "·"}</td>
                           <td className="mono" style={{ color: P.teal }}>{f.ahorro ? money(f.ahorro) : "·"}</td>
@@ -557,14 +569,23 @@ export default function App() {
                 )}
               </Panel>
 
-              {/* AHORRO */}
-              <Panel eb="Proyección de ahorro" title="Acumulado a la fecha" right={<MonthSel v={ahoMes} onChange={setAhoMes} />}>
+              {/* TODO LO POSITIVO ACUMULADO */}
+              <Panel eb="Acumulado a la fecha" title="Todo lo positivo: ahorro + sobrante + reserva" right={<MonthSel v={ahoMes} onChange={setAhoMes} />}>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 90 }}>
                   {ahoData.map((f, k) => (
-                    <div key={k} title={`${mlabel(f.m)}: ${money(f.ahorroAcum)}`} style={{ flex: 1, background: P.healthy, opacity: 0.85, height: `${Math.max(2, (f.ahorroAcum / ahoMax) * 100)}%`, borderRadius: "2px 2px 0 0" }} />
+                    <div key={k} title={`${mlabel(f.m)}: total ${money(f.ahorroAcum + f.sobranteAcum + f.reservaAcum)}`} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%" }}>
+                      <div style={{ background: "#C9A24B", height: `${Math.max(0, (f.reservaAcum / ahoMax) * 100)}%` }} title="reserva" />
+                      <div style={{ background: "#8FC9B4", height: `${Math.max(0, (f.sobranteAcum / ahoMax) * 100)}%` }} title="sobrante" />
+                      <div style={{ background: P.teal, height: `${Math.max(0, (f.ahorroAcum / ahoMax) * 100)}%` }} title="ahorro" />
+                    </div>
                   ))}
                 </div>
-                <div style={{ marginTop: 10, fontSize: 13 }}>Total ahorrado a {mlabel(ahoMes)}: <b className="mono" style={{ color: P.teal }}>{money(r.flujo[ahoMes]?.ahorroAcum || 0)}</b></div>
+                <div style={{ marginTop: 10, fontSize: 12, display: "grid", gap: 3 }}>
+                  <div>Total a {mlabel(ahoMes)}: <b className="mono" style={{ color: P.ink }}>{money((r.flujo[ahoMes]?.ahorroAcum || 0) + (r.flujo[ahoMes]?.sobranteAcum || 0) + (r.flujo[ahoMes]?.reservaAcum || 0))}</b></div>
+                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.teal, borderRadius: 2, marginRight: 5 }} />Ahorro (definido) <b className="mono">{money(r.flujo[ahoMes]?.ahorroAcum || 0)}</b></div>
+                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: "#8FC9B4", borderRadius: 2, marginRight: 5 }} />Sobrante (libre / inversión) <b className="mono">{money(r.flujo[ahoMes]?.sobranteAcum || 0)}</b></div>
+                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: "#C9A24B", borderRadius: 2, marginRight: 5 }} />Reserva fiscal (impuestos) <b className="mono">{money(r.flujo[ahoMes]?.reservaAcum || 0)}</b></div>
+                </div>
               </Panel>
             </div>
 
@@ -578,6 +599,42 @@ export default function App() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, fontSize: 13 }}>
                 <span style={{ color: P.muted }}>Pagado en el período: <b className="mono" style={{ color: P.ink }}>{money(deuPagTot)}</b></span>
                 <span style={{ color: P.muted }}>Deuda restante a {mlabel(deuMes)}: <b className="mono" style={{ color: deuTotAtMes > 0 ? P.critical : P.healthy }}>{money(deuTotAtMes)}</b></span>
+              </div>
+            </Panel>
+
+            {/* PATRIMONIO NETO — foto para análisis */}
+            <Panel eb="Patrimonio neto · foto para análisis" title="Activos − Pasivos a la fecha" right={<MonthSel v={netoMes} onChange={setNetoMes} />}>
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ minWidth: 150 }}>
+                  <div style={{ fontSize: 11, color: P.muted }}>Patrimonio neto a {mlabel(netoMes)}</div>
+                  <div className="mono" style={{ fontSize: 26, fontWeight: 700, color: (fNeto.patrimonioNeto || 0) < 0 ? P.critical : P.healthy }}>{money(fNeto.patrimonioNeto || 0)}</div>
+                </div>
+                <table className="tbl" style={{ flex: 1, minWidth: 240 }}>
+                  <tbody>
+                    <tr><td style={{ color: P.healthy, fontWeight: 600 }}>Activos</td><td className="mono" style={{ fontWeight: 600 }}>{money(activos)}</td></tr>
+                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Ahorro + sobrante</td><td className="mono">{money(fNeto.patrimonioAcum || 0)}</td></tr>
+                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Reserva fiscal</td><td className="mono">{money(fNeto.reservaAcum || 0)}</td></tr>
+                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Por cobrar pendiente</td><td className="mono">{money(fNeto.cobrosPend || 0)}</td></tr>
+                    <tr><td style={{ color: P.critical, fontWeight: 600 }}>Pasivos</td><td className="mono" style={{ fontWeight: 600 }}>−{money(pasivos)}</td></tr>
+                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Deuda restante</td><td className="mono">−{money(fNeto.deudaTot || 0)}</td></tr>
+                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Déficit / tarjeta pendiente</td><td className="mono">−{money(fNeto.cardCarry || 0)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, color: P.muted, marginBottom: 4 }}>Trayectoria del patrimonio neto</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 1, height: 76, position: "relative" }}>
+                  <div style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: P.line }} />
+                  {netoData.map((f, k) => {
+                    const hp = (Math.abs(f.patrimonioNeto) / netoAbsMax) * 36; const pos = f.patrimonioNeto >= 0;
+                    return (
+                      <div key={k} title={`${mlabel(f.m)}: ${money(f.patrimonioNeto)}`} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column" }}>
+                        <div style={{ height: 38, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>{pos && <div style={{ height: hp, background: P.healthy, borderRadius: "2px 2px 0 0" }} />}</div>
+                        <div style={{ height: 38 }}>{!pos && <div style={{ height: hp, background: P.critical, borderRadius: "0 0 2px 2px" }} />}</div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </Panel>
 
