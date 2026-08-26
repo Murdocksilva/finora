@@ -25,6 +25,7 @@ const pct = (n) => Math.round(n * 100) + "%";
 let _id = 0; const uid = () => ++_id;
 const bumpId = (n) => { if (n > _id) _id = n; };
 const z = () => Array(H).fill(0);
+const hoy = () => new Date().toISOString().slice(0, 10);
 const pad = (a) => { const b = a.slice(0, H); while (b.length < H) b.push(0); return b; };
 
 const CSS = `
@@ -64,7 +65,7 @@ const blankInp = () => ({
   ingreso: { e1: 0, e2: 0, e3: 0, e4: 0 }, laborPorTrabajo: 3200,
   reserva: Array(H).fill(0.24), ahorro: Array(H).fill(0),
   ahorroLiquido: 0, gastosControlados: false, objetivoFE: 6, objetivoAhorro: 0.2,
-  categorias: [...CATS0], gastosItems: [], deudas: [], porCobrar: [], metas: [],
+  categorias: [...CATS0], gastosItems: [], deudas: [], porCobrar: [], metas: [], actuals: {}, fechaProy: hoy(),
   horizonte: Array.from({ length: H }, () => ({ sc: "e2" })),
 });
 const gabrielInp = () => ({
@@ -90,7 +91,7 @@ const gabrielInp = () => ({
     { id: uid(), n: "Suscripciones", m: 70, cat: "SUSCRIPCIONES" }, { id: uid(), n: "Peajes SunPass", m: 200, cat: "TRANSPORTE" },
     { id: uid(), n: "Website", m: 29, cat: "SERVICIOS" }, { id: uid(), n: "Imprevistos", m: 200, cat: "OCIO" },
   ],
-  metas: [],
+  metas: [], actuals: {}, fechaProy: hoy(),
   horizonte: Array.from({ length: H }, (_, i) => ({ sc: i === 0 ? "e4" : i === 1 ? "e4" : i === 2 ? "e2" : i === 3 ? "e1" : "e2" })),
 });
 
@@ -107,7 +108,9 @@ function normInp(inp) {
   x.gastosItems = (inp.gastosItems || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", m: 0, cat: CATS0[0], ...g }));
   x.deudas = (inp.deudas || []).map((d) => ({ id: typeof d.id === "number" ? d.id : uid(), n: "", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", ...d, pagos: pad((d.pagos || []).map(Number)) }));
   x.porCobrar = (inp.porCobrar || []).map((c) => ({ id: typeof c.id === "number" ? c.id : uid(), n: "", monto: 0, ambito: "personal", cat: "INVERSIONES", ...c, cobros: pad((c.cobros || []).map(Number)) }));
-  x.metas = (inp.metas || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", monto: 0, mesObjetivo: 11, ...g }));
+  x.metas = (inp.metas || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", monto: 0, mesInicio: 0, mesObjetivo: 11, ...g }));
+  x.actuals = inp.actuals && typeof inp.actuals === "object" ? inp.actuals : {};
+  x.fechaProy = inp.fechaProy || hoy();
   x.horizonte = (Array.isArray(inp.horizonte) && inp.horizonte.length) ? padH(inp.horizonte) : blankInp().horizonte;
   return x;
 }
@@ -175,7 +178,7 @@ function runEngine(i) {
     const salario = +i.ingreso[h.sc] || 0;
     let cobros = 0; cobrosSt.forEach((c) => { const g = Math.min(c.cobros?.[m] || 0, c.rem); c.rem -= g; cobros += g; });
     let deuda = 0; deudas.forEach((d) => { const p = Math.min(d.pagos?.[m] || 0, d.rem); d.rem -= p; deuda += p; });
-    const metasMes = i.metas.reduce((a, g) => a + (m <= g.mesObjetivo && g.mesObjetivo >= 0 ? (+g.monto || 0) / (g.mesObjetivo + 1) : 0), 0);
+    const metasMes = i.metas.reduce((a, g) => { const ini = g.mesInicio || 0, fin = g.mesObjetivo; return a + (fin >= ini && m >= ini && m <= fin ? (+g.monto || 0) / (fin - ini + 1) : 0); }, 0);
     const tarjeta = deficitPrev; // déficit del mes anterior, se paga como tarjeta este mes
     const base = salario + cobros - gastos - deuda - metasMes - tarjeta;
     const tgtR = salario * (i.reserva[m] || 0), tgtA = salario * (i.ahorro[m] || 0);
@@ -293,12 +296,64 @@ const MonthSel = ({ v, onChange }) => (
   </select>
 );
 
+function RealView({ i, rm, setRm, setActual, setActualIng }) {
+  const A = (i.actuals && i.actuals[rm]) || {};
+  const projIng = i.ingreso[i.horizonte[rm] ? i.horizonte[rm].sc : "e2"] || 0;
+  const realIng = A.ingreso != null ? A.ingreso : projIng;
+  const grows = i.gastosItems.map((it) => ({ id: it.id, n: it.n, proj: +it.m || 0, real: A.g && A.g[it.id] != null ? A.g[it.id] : (+it.m || 0) }));
+  const drows = i.deudas.map((d) => ({ id: d.id, n: d.n, proj: d.pagos?.[rm] || 0, real: A.d && A.d[d.id] != null ? A.d[d.id] : (d.pagos?.[rm] || 0) }));
+  const crows = i.porCobrar.map((c) => ({ id: c.id, n: c.n, proj: c.cobros?.[rm] || 0, real: A.c && A.c[c.id] != null ? A.c[c.id] : (c.cobros?.[rm] || 0) }));
+  const sum = (rows, k) => rows.reduce((a, r) => a + r[k], 0);
+  const projG = sum(grows, "proj"), realG = sum(grows, "real"), projD = sum(drows, "proj"), realD = sum(drows, "real"), projC = sum(crows, "proj"), realC = sum(crows, "real");
+  const projRes = projIng + projC - projG - projD, realRes = realIng + realC - realG - realD;
+  const pagadoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.d && mm.d[id]) || 0), 0);
+  const cobradoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.c && mm.c[id]) || 0), 0);
+  const alertas = grows.filter((r) => r.proj > 0 && Math.abs(r.real - r.proj) / r.proj > 0.15 && Math.abs(r.real - r.proj) > 1).map((r) => ({ n: r.n, proj: r.proj, real: r.real, d: (r.real - r.proj) / r.proj }));
+  const Delta = ({ real, proj }) => { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; };
+  const Tabla = ({ rows, kind, pend }) => (
+    <table className="tbl"><thead><tr><th>{kind === "g" ? "Partida" : kind === "d" ? "Deuda" : "Cobro"}</th><th>Proy.</th><th>Real</th><th>Δ</th>{pend && <th>Pendiente</th>}</tr></thead>
+      <tbody>{rows.map((r) => (
+        <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}` }}>
+          <td>{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
+          <td><input className="si" style={{ width: 78 }} type="number" value={r.real} onChange={(e) => setActual(rm, kind, r.id, +e.target.value || 0)} /></td>
+          <td className="mono"><Delta real={r.real} proj={r.proj} /></td>
+          {pend && <td className="mono" style={{ color: pend(r.id) > 0 ? (kind === "d" ? P.critical : P.caution) : P.healthy }}>{money(pend(r.id))}</td>}
+        </tr>))}
+      </tbody></table>
+  );
+  return (
+    <div className="gcol" style={{ maxWidth: 780, margin: "0 auto" }}>
+      <Panel eb="Registro real · lo que pasó de verdad" title="Cargá el mes en curso" right={<MonthSel v={rm} onChange={setRm} />}>
+        <p style={{ fontSize: 13, color: P.muted, marginTop: 0 }}>Estás cargando <b style={{ color: P.ink }}>{mlabel(rm)}</b>. Los campos vienen con lo proyectado; cambiá solo lo que fue distinto.</p>
+        <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ingreso real</span><span className="mono" style={{ fontSize: 13, color: P.muted }}>proy {money(projIng)} → $<input className="num mono" type="number" value={realIng} onChange={(e) => setActualIng(rm, +e.target.value || 0)} /></span></div>
+      </Panel>
+      <Panel eb="Gastos reales" title="Proyectado vs real"><Tabla rows={grows} kind="g" /><div className="mono" style={{ textAlign: "right", fontSize: 12, marginTop: 6 }}>Total real {money(realG)} · proy {money(projG)}</div></Panel>
+      <Panel eb="Deuda pagada real" title="Proyectado vs real"><Tabla rows={drows} kind="d" pend={(id) => Math.max(0, (+(i.deudas.find((x) => x.id === id) || {}).saldo || 0) - pagadoReal(id))} /></Panel>
+      <Panel eb="Cobros reales" title="Proyectado vs real"><Tabla rows={crows} kind="c" pend={(id) => Math.max(0, (+(i.porCobrar.find((x) => x.id === id) || {}).monto || 0) - cobradoReal(id))} /></Panel>
+      <Panel eb="Resultado del mes" title="Real vs proyectado">
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <div><div style={{ fontSize: 11, color: P.muted }}>Proyectado</div><div className="mono" style={{ fontSize: 20, color: projRes < 0 ? P.critical : P.ink }}>{money(projRes)}</div></div>
+          <div><div style={{ fontSize: 11, color: P.muted }}>Real</div><div className="mono" style={{ fontSize: 20, fontWeight: 700, color: realRes < 0 ? P.critical : P.healthy }}>{money(realRes)}</div></div>
+          <div><div style={{ fontSize: 11, color: P.muted }}>Diferencia</div><div className="mono" style={{ fontSize: 20, color: (realRes - projRes) < 0 ? P.critical : P.healthy }}>{money(realRes - projRes)}</div></div>
+        </div>
+      </Panel>
+      <Panel eb="Diferencias con la proyección" title="Dónde te desviaste">
+        {alertas.length === 0 ? <div style={{ fontSize: 13, color: P.healthy }}>Sin desvíos grandes en {mlabel(rm)}. Vas según lo proyectado.</div> :
+          alertas.map((a, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 13, marginBottom: 8 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: a.d > 0 ? P.critical : P.healthy, flexShrink: 0 }} /><span><b>{a.n}:</b> proyectaste {money(a.proj)}, real {money(a.real)} ({a.d > 0 ? "+" : ""}{pct(a.d)}). {a.d > 0 ? "Considerá subir esta partida en la proyección." : "Te sobró margen; podrías bajarla."}</span></div>))}
+      </Panel>
+    </div>
+  );
+}
+
 export default function App() {
   const [profiles, setProfiles] = useState(() => loadSaved() || [{ id: uid(), nombre: "Gabriel", inp: gabrielInp() }]);
   const [activeId, setActiveId] = useState(() => profiles[0].id);
   const active = profiles.find((p) => p.id === activeId) || profiles[0];
   const i = active.inp;
   const [pieMes, setPieMes] = useState(5), [ahoMes, setAhoMes] = useState(11), [deuMes, setDeuMes] = useState(11), [netoMes, setNetoMes] = useState(11);
+  const [view, setView] = useState("proj"), [rm, setRm] = useState(0);
+  const setActual = (m, kind, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur[kind] = { ...(cur[kind] || {}), [id]: val }; acts[m] = cur; return { ...x, actuals: acts }; });
+  const setActualIng = (m, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur.ingreso = val; acts[m] = cur; return { ...x, actuals: acts }; });
   const [newCat, setNewCat] = useState("");
 
   const updInp = (fn) => setProfiles((ps) => ps.map((p) => (p.id === activeId ? { ...p, inp: fn(p.inp) } : p)));
@@ -370,12 +425,19 @@ export default function App() {
         </div>
 
         {/* NOMBRE GRANDE */}
-        <header style={{ marginBottom: 22 }}>
+        <header style={{ marginBottom: 20 }}>
           <div className="eb mono">Planificador financiero · sin IA · corre en el dispositivo</div>
-          <input value={active.nombre} onChange={(e) => renameProfile(e.target.value)}
-            style={{ fontSize: 40, fontWeight: 800, color: P.ink, border: "none", background: "transparent", padding: 0, width: "100%" }} />
+          <input value={active.nombre} onChange={(e) => renameProfile(e.target.value)} style={{ fontSize: 40, fontWeight: 800, color: P.ink, border: "none", background: "transparent", padding: 0, width: "100%" }} />
+          <div style={{ marginTop: 4 }}><span style={{ fontSize: 12, color: P.muted }}>Proyección al: <input type="date" value={i.fechaProy || ""} onChange={(e) => set({ fechaProy: e.target.value })} style={{ fontSize: 12, padding: "3px 6px" }} /></span></div>
+          <div style={{ display: "flex", gap: 10, marginTop: 14, borderBottom: `1px solid ${P.line}` }}>
+            {[["proj", "Proyección"], ["real", "Registro real"]].map(([k, l]) => (
+              <button key={k} onClick={() => setView(k)} style={{ cursor: "pointer", border: "none", background: "transparent", fontSize: 14, fontWeight: 600, padding: "8px 4px", color: view === k ? P.teal : P.muted, borderBottom: `2px solid ${view === k ? P.teal : "transparent"}`, marginBottom: -1 }}>{l}</button>
+            ))}
+          </div>
         </header>
 
+        {view === "real" && <RealView i={i} rm={rm} setRm={setRm} setActual={setActual} setActualIng={setActualIng} />}
+        {view === "proj" && (
         <div className="gmain">
           {/* ── INPUTS ── */}
           <div className="gcol">
@@ -475,13 +537,16 @@ export default function App() {
                   </div>
                   <div className="row" style={{ padding: "2px 0" }}>
                     <span style={{ fontSize: 12, color: P.muted }}>monto $<input className="num mono" type="number" value={g.monto} onChange={(e) => editItem("metas", g.id, { monto: +e.target.value || 0 })} /></span>
-                    <span style={{ fontSize: 12, color: P.muted }}>para <MonthSel v={g.mesObjetivo} onChange={(v) => editItem("metas", g.id, { mesObjetivo: v })} /></span>
                   </div>
-                  {g.monto > 0 && g.mesObjetivo >= 0 && <div className="mono" style={{ fontSize: 11, color: P.teal, textAlign: "right" }}>cuota {money((+g.monto) / (g.mesObjetivo + 1))}/mes</div>}
+                  <div className="row" style={{ padding: "2px 0" }}>
+                    <span style={{ fontSize: 12, color: P.muted }}>desde <MonthSel v={g.mesInicio ?? 0} onChange={(v) => editItem("metas", g.id, { mesInicio: v })} /></span>
+                    <span style={{ fontSize: 12, color: P.muted }}>hasta <MonthSel v={g.mesObjetivo} onChange={(v) => editItem("metas", g.id, { mesObjetivo: v })} /></span>
+                  </div>
+                  {g.monto > 0 && g.mesObjetivo >= (g.mesInicio ?? 0) && <div className="mono" style={{ fontSize: 11, color: P.teal, textAlign: "right" }}>cuota {money((+g.monto) / (g.mesObjetivo - (g.mesInicio ?? 0) + 1))}/mes</div>}
                 </div>
               ))}
               {i.metas.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin metas. Agregá auto, casa, viaje…</div>}
-              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("metas", { n: "Nueva meta", monto: 0, mesObjetivo: 11 })}>+ Agregar meta</button>
+              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("metas", { n: "Nueva meta", monto: 0, mesInicio: 0, mesObjetivo: 11 })}>+ Agregar meta</button>
             </Panel>
           </div>
 
@@ -678,6 +743,7 @@ export default function App() {
             <p className="mono" style={{ fontSize: 11, textAlign: "center", color: P.muted, marginTop: 4 }}>Cálculo local · sin servidor · sin IA · costo de cómputo $0</p>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
