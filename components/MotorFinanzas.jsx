@@ -382,8 +382,9 @@ function RealView({ i, rm, setRm, setActual, setActualIng }) {
   );
 }
 
-export default function App() {
-  const [profiles, setProfiles] = useState(() => loadSaved() || [{ id: uid(), nombre: "Gabriel", inp: gabrielInp() }]);
+function Planner({ auth, initialData, onLogout }) {
+  const [profiles, setProfiles] = useState(() => { const n = parseProfiles(initialData); return (n && n.length) ? n : [{ id: uid(), nombre: auth.username, inp: blankInp() }]; });
+  const [saving, setSaving] = useState("");
   const [activeId, setActiveId] = useState(() => profiles[0].id);
   const active = profiles.find((p) => p.id === activeId) || profiles[0];
   const i = active.inp;
@@ -409,7 +410,16 @@ export default function App() {
   const delProfile = () => setProfiles((ps) => { if (ps.length <= 1) return ps; const rest = ps.filter((p) => p.id !== activeId); setActiveId(rest[0].id); return rest; });
 
   // Autoguardado en el navegador (persiste entre recargas y deploys)
-  useEffect(() => { try { if (typeof window !== "undefined" && window.localStorage) window.localStorage.setItem(LSKEY, JSON.stringify(profiles)); } catch (e) {} }, [profiles]);
+  useEffect(() => { try { if (typeof window !== "undefined" && window.localStorage) window.localStorage.setItem("finora_" + auth.username, JSON.stringify(profiles)); } catch (e) {} }, [profiles, auth.username]);
+  const guardar = async () => {
+    setSaving("guardando");
+    try {
+      const r = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: auth.username, password: auth.password, data: profiles }) });
+      const j = await r.json();
+      setSaving(j.ok ? "guardado" : "error");
+    } catch (e) { setSaving("error"); }
+    setTimeout(() => setSaving(""), 2500);
+  };
   const fileRef = React.useRef(null);
   const exportar = () => { try { const blob = new Blob([JSON.stringify(profiles, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "finora-datos.json"; a.click(); URL.revokeObjectURL(url); } catch (e) {} };
   const importar = (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const norm = parseProfiles(JSON.parse(rd.result)); if (norm) { setProfiles(norm); setActiveId(norm[0].id); } else alert("El archivo no tiene el formato esperado."); } catch (err) { alert("No se pudo leer el archivo."); } }; rd.readAsText(f); e.target.value = ""; };
@@ -458,7 +468,10 @@ export default function App() {
           <button className="btn" style={{ borderRadius: 20 }} onClick={exportar}>⬇ Exportar respaldo</button>
           <button className="btn" style={{ borderRadius: 20 }} onClick={() => fileRef.current && fileRef.current.click()}>⬆ Importar</button>
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={importar} style={{ display: "none" }} />
-          <span className="mono" style={{ fontSize: 10, color: P.healthy }}>guardado automático ✓</span>
+          <button className="pill" onClick={guardar} style={{ border: "none", background: P.teal, color: "#fff", fontWeight: 600 }}>{saving === "guardando" ? "Guardando…" : "Guardar"}</button>
+          {saving === "guardado" && <span className="mono" style={{ fontSize: 11, color: P.healthy }}>guardado en la nube ✓</span>}
+          {saving === "error" && <span className="mono" style={{ fontSize: 11, color: P.critical }}>error al guardar</span>}
+          <button className="btn" style={{ borderRadius: 20 }} onClick={onLogout}>Salir</button>
         </div>
 
         {/* NOMBRE GRANDE */}
@@ -784,4 +797,40 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+function Login({ onLogin }) {
+  const [u, setU] = useState(""), [p, setP] = useState(""), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!u || !p) { setErr("Completá usuario y clave."); return; }
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) });
+      const j = await r.json();
+      if (j.ok) onLogin({ username: j.username, password: p }, j.data);
+      else setErr(j.error || "Usuario o clave incorrectos.");
+    } catch (e) { setErr("No se pudo conectar. Probá de nuevo."); }
+    setBusy(false);
+  };
+  return (
+    <div className="app" style={{ background: P.paper, color: P.ink, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <style>{CSS}</style>
+      <div className="panel" style={{ width: "100%", maxWidth: 360 }}>
+        <div className="eb mono">Planificador financiero</div>
+        <h1 style={{ fontSize: 26, fontWeight: 800, margin: "4px 0 16px" }}>Ingresá</h1>
+        <div style={{ display: "grid", gap: 10 }}>
+          <input placeholder="Usuario" value={u} onChange={(e) => setU(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} style={{ padding: "10px 12px", fontSize: 14 }} />
+          <input placeholder="Clave" type="password" value={p} onChange={(e) => setP(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} style={{ padding: "10px 12px", fontSize: 14 }} />
+          {err && <div style={{ fontSize: 13, color: P.critical }}>{err}</div>}
+          <button onClick={submit} disabled={busy} style={{ cursor: "pointer", border: "none", background: P.teal, color: "#fff", fontWeight: 600, padding: "10px 12px", borderRadius: 8, fontSize: 14 }}>{busy ? "Entrando…" : "Entrar"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [session, setSession] = useState(null);
+  if (!session) return <Login onLogin={(a, d) => setSession({ auth: a, data: d })} />;
+  return <Planner auth={session.auth} initialData={session.data} onLogout={() => setSession(null)} />;
 }
