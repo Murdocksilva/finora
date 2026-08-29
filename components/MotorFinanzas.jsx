@@ -26,6 +26,17 @@ let _id = 0; const uid = () => ++_id;
 const bumpId = (n) => { if (n > _id) _id = n; };
 const z = () => Array(H).fill(0);
 const hoy = () => new Date().toISOString().slice(0, 10);
+function metaAporte(g, m) {
+  const ini = g.mesInicio || 0, fin = g.mesObjetivo;
+  if (fin < ini || m < ini || m > fin) return 0;
+  if (g.modo === "manual") {
+    const off = g.mesesOff || {};
+    if (off[m]) return 0;
+    let cnt = 0; for (let k = ini; k <= fin; k++) if (!off[k]) cnt++;
+    return cnt ? (+g.monto || 0) / cnt : 0;
+  }
+  return (+g.monto || 0) / (fin - ini + 1);
+}
 const pad = (a) => { const b = a.slice(0, H); while (b.length < H) b.push(0); return b; };
 
 const CSS = `
@@ -109,7 +120,7 @@ function normInp(inp) {
   x.gastosItems = (inp.gastosItems || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", m: 0, cat: CATS0[0], ...g }));
   x.deudas = (inp.deudas || []).map((d) => ({ id: typeof d.id === "number" ? d.id : uid(), n: "", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", ...d, pagos: pad((d.pagos || []).map(Number)) }));
   x.porCobrar = (inp.porCobrar || []).map((c) => ({ id: typeof c.id === "number" ? c.id : uid(), n: "", monto: 0, ambito: "personal", cat: "INVERSIONES", ...c, cobros: pad((c.cobros || []).map(Number)) }));
-  x.metas = (inp.metas || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", monto: 0, mesInicio: 0, mesObjetivo: 11, ...g }));
+  x.metas = (inp.metas || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", monto: 0, mesInicio: 0, mesObjetivo: 11, modo: "auto", mesesOff: {}, ...g }));
   x.actuals = inp.actuals && typeof inp.actuals === "object" ? inp.actuals : {};
   x.fechaProy = inp.fechaProy || hoy();
   x.horizonte = (Array.isArray(inp.horizonte) && inp.horizonte.length) ? padH(inp.horizonte) : blankInp().horizonte;
@@ -179,7 +190,7 @@ function runEngine(i) {
     const salario = +i.ingreso[h.sc] || 0;
     let cobros = 0; cobrosSt.forEach((c) => { const g = Math.min(c.cobros?.[m] || 0, c.rem); c.rem -= g; cobros += g; });
     let deuda = 0; deudas.forEach((d) => { const p = Math.min(d.pagos?.[m] || 0, d.rem); d.rem -= p; deuda += p; });
-    const metasMes = i.metas.reduce((a, g) => { const ini = g.mesInicio || 0, fin = g.mesObjetivo; return a + (fin >= ini && m >= ini && m <= fin ? (+g.monto || 0) / (fin - ini + 1) : 0); }, 0);
+    const metasMes = i.metas.reduce((a, g) => a + metaAporte(g, m), 0);
     const tarjeta = cardPrev; // parte del déficit anterior que el sobrante no alcanzó a cubrir
     const base = salario + cobros - gastos - deuda - metasMes - tarjeta;
     const tgtR = salario * (i.reserva[m] || 0), tgtA = salario * (i.ahorro[m] || 0);
@@ -350,7 +361,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng }) {
   const projRes = projIng + projC - projG - projD, realRes = realIng + realC - realG - realD;
   const pagadoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.d && mm.d[id]) || 0), 0);
   const cobradoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.c && mm.c[id]) || 0), 0);
-  const metaRows = i.metas.map((g) => { const ini = g.mesInicio || 0, fin = g.mesObjetivo, span = Math.max(1, fin - ini + 1), cuota = (+g.monto || 0) / span, elapsed = Math.max(0, Math.min(rm, fin) - ini + 1); return { n: g.n, a: +g.monto || 0, b: rm >= ini ? cuota * Math.min(elapsed, span) : 0 }; });
+  const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= rm; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
   return (
     <div className="gcol" style={{ maxWidth: 820, margin: "0 auto" }}>
       <Panel eb="Registro real · lo que pasó de verdad" title="Cargá el mes en curso" right={<MonthSel v={rm} onChange={setRm} />}>
@@ -582,24 +593,44 @@ function Planner({ auth, initialData, onLogout }) {
             </Panel>
 
             <Panel eb="Metas" title="Objetivos con fecha">
-              {i.metas.map((g) => (
-                <div key={g.id} style={{ padding: "6px 0", borderBottom: `1px solid ${P.faint}` }}>
-                  <div className="row" style={{ padding: "2px 0" }}>
-                    <input className="nam" value={g.n} onChange={(e) => editItem("metas", g.id, { n: e.target.value })} />
-                    <button className="x" onClick={() => delItem("metas", g.id)}>×</button>
+              {i.metas.map((g) => {
+                const ini = g.mesInicio ?? 0, fin = g.mesObjetivo, off = g.mesesOff || {}, modo = g.modo || "auto";
+                let cnt = 0; for (let k = ini; k <= fin; k++) if (!off[k]) cnt++;
+                const activos = modo === "manual" ? cnt : Math.max(1, fin - ini + 1);
+                const cuota = activos ? (+g.monto || 0) / activos : 0;
+                return (
+                  <div key={g.id} style={{ padding: "8px 0", borderBottom: `1px solid ${P.faint}` }}>
+                    <div className="row" style={{ padding: "2px 0" }}>
+                      <input className="nam" value={g.n} onChange={(e) => editItem("metas", g.id, { n: e.target.value })} />
+                      <button className="x" onClick={() => delItem("metas", g.id)}>×</button>
+                    </div>
+                    <div className="row" style={{ padding: "2px 0" }}>
+                      <span style={{ fontSize: 12, color: P.muted }}>monto $<input className="num mono" type="number" value={g.monto} onChange={(e) => editItem("metas", g.id, { monto: +e.target.value || 0 })} /></span>
+                    </div>
+                    <div className="row" style={{ padding: "2px 0" }}>
+                      <span style={{ fontSize: 12, color: P.muted }}>desde <MonthSel v={ini} onChange={(v) => editItem("metas", g.id, { mesInicio: v })} /></span>
+                      <span style={{ fontSize: 12, color: P.muted }}>hasta <MonthSel v={fin} onChange={(v) => editItem("metas", g.id, { mesObjetivo: v })} /></span>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, margin: "5px 0" }}>
+                      {[["auto", "Cuota automática"], ["manual", "Manual"]].map(([mv, ml]) => (
+                        <button key={mv} onClick={() => editItem("metas", g.id, { modo: mv })} style={{ cursor: "pointer", fontSize: 11, padding: "3px 8px", borderRadius: 6, border: `1px solid ${modo === mv ? P.teal : P.line}`, background: modo === mv ? P.teal : "#fff", color: modo === mv ? "#fff" : P.muted }}>{ml}</button>
+                      ))}
+                    </div>
+                    {modo === "manual" && fin >= ini && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 4, padding: 8, background: P.faint, borderRadius: 6, marginBottom: 4 }}>
+                        {Array.from({ length: fin - ini + 1 }, (_, j) => ini + j).map((k) => (
+                          <label key={k} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, cursor: "pointer", color: P.muted }}>
+                            <input type="checkbox" checked={!off[k]} onChange={() => editItem("metas", g.id, { mesesOff: { ...off, [k]: !off[k] } })} />{mlabel(k)}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {g.monto > 0 && fin >= ini && <div className="mono" style={{ fontSize: 11, color: P.teal, textAlign: "right" }}>cuota {money(cuota)}/mes · {activos} mes{activos === 1 ? "" : "es"}</div>}
                   </div>
-                  <div className="row" style={{ padding: "2px 0" }}>
-                    <span style={{ fontSize: 12, color: P.muted }}>monto $<input className="num mono" type="number" value={g.monto} onChange={(e) => editItem("metas", g.id, { monto: +e.target.value || 0 })} /></span>
-                  </div>
-                  <div className="row" style={{ padding: "2px 0" }}>
-                    <span style={{ fontSize: 12, color: P.muted }}>desde <MonthSel v={g.mesInicio ?? 0} onChange={(v) => editItem("metas", g.id, { mesInicio: v })} /></span>
-                    <span style={{ fontSize: 12, color: P.muted }}>hasta <MonthSel v={g.mesObjetivo} onChange={(v) => editItem("metas", g.id, { mesObjetivo: v })} /></span>
-                  </div>
-                  {g.monto > 0 && g.mesObjetivo >= (g.mesInicio ?? 0) && <div className="mono" style={{ fontSize: 11, color: P.teal, textAlign: "right" }}>cuota {money((+g.monto) / (g.mesObjetivo - (g.mesInicio ?? 0) + 1))}/mes</div>}
-                </div>
-              ))}
+                );
+              })}
               {i.metas.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin metas. Agregá auto, casa, viaje…</div>}
-              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("metas", { n: "Nueva meta", monto: 0, mesInicio: 0, mesObjetivo: 11 })}>+ Agregar meta</button>
+              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("metas", { n: "Nueva meta", monto: 0, mesInicio: 0, mesObjetivo: 11, modo: "auto", mesesOff: {} })}>+ Agregar meta</button>
             </Panel>
           </div>
 
