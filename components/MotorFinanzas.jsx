@@ -16,7 +16,7 @@ const P = {
   healthy: "#2F8F6B", caution: "#B8791E", critical: "#A8412F",
   muted: "#6B7269", line: "#E3E5DE", faint: "#EFF1EC",
 };
-const SCC = { e1: P.critical, e2: P.caution, e3: "#4E8A6B", e4: P.healthy };
+const SCC = { e1: P.critical, e2: P.caution, e3: "#3E6FA8", e4: P.healthy };
 const SCL = { e1: "Esc 1", e2: "Esc 2", e3: "Esc 3", e4: "Esc 4" };
 const SCEN = ["e1", "e2", "e3", "e4"];
 const CATCOLORS = ["#0B5D4E", "#B8791E", "#A8412F", "#4E8A6B", "#4A6FA5", "#9C5D8A", "#2F8F6B", "#8A6D3B", "#C98A3A", "#6B7269", "#7A4E9C", "#3A7CA5"];
@@ -62,14 +62,14 @@ input:focus,select:focus{box-shadow:0 0 0 2px rgba(11,93,78,.22)}
 /* ─────────────── DATOS ─────────────── */
 const CATS0 = ["ALQUILER", "EXPENSAS", "SERVICIOS", "TRANSPORTE", "COMIDA", "OCIO", "FAMILIA", "SUSCRIPCIONES", "INVERSIONES", "DEUDAS"];
 const blankInp = () => ({
-  ingreso: { e1: 0, e2: 0, e3: 0, e4: 0 }, laborPorTrabajo: 3200,
+  ingreso: { e1: 0, e2: 0, e3: 0, e4: 0 }, escNombres: { e1: "Esc 1", e2: "Esc 2", e3: "Esc 3", e4: "Esc 4" }, laborPorTrabajo: 3200,
   reserva: Array(H).fill(0.24), ahorro: Array(H).fill(0),
   ahorroLiquido: 0, gastosControlados: false, objetivoFE: 6, objetivoAhorro: 0.2,
   categorias: [...CATS0], gastosItems: [], deudas: [], porCobrar: [], metas: [], actuals: {}, fechaProy: hoy(),
   horizonte: Array.from({ length: H }, () => ({ sc: "e2" })),
 });
 const gabrielInp = () => ({
-  ingreso: { e1: 6000, e2: 8500, e3: 10500, e4: 12500 }, laborPorTrabajo: 3200,
+  ingreso: { e1: 6000, e2: 8500, e3: 10500, e4: 12500 }, escNombres: { e1: "Esc 1", e2: "Esc 2", e3: "Esc 3", e4: "Esc 4" }, laborPorTrabajo: 3200,
   reserva: Array(H).fill(0.24), ahorro: Array(H).fill(0),
   ahorroLiquido: 0, gastosControlados: true, objetivoFE: 6, objetivoAhorro: 0.2,
   categorias: [...CATS0],
@@ -102,6 +102,7 @@ function padH(h) { const b = Array.from({ length: H }, () => ({ sc: "e2" })); fo
 function normInp(inp) {
   inp = inp || {}; const x = { ...blankInp(), ...inp };
   x.ingreso = { e1: 0, e2: 0, e3: 0, e4: 0, ...(inp.ingreso || {}) };
+  x.escNombres = { e1: "Esc 1", e2: "Esc 2", e3: "Esc 3", e4: "Esc 4", ...(inp.escNombres || {}) };
   x.reserva = Array.isArray(inp.reserva) ? pad(inp.reserva.map(Number)) : Array(H).fill(typeof inp.reserva === "number" ? inp.reserva : 0.24);
   x.ahorro = Array.isArray(inp.ahorro) ? pad(inp.ahorro.map(Number)) : Array(H).fill(0);
   x.categorias = (inp.categorias && inp.categorias.length) ? inp.categorias : [...CATS0];
@@ -389,6 +390,7 @@ function Planner({ auth, initialData, onLogout }) {
   const active = profiles.find((p) => p.id === activeId) || profiles[0];
   const i = active.inp;
   const [pieMes, setPieMes] = useState(5), [ahoMes, setAhoMes] = useState(11), [deuMes, setDeuMes] = useState(11), [netoMes, setNetoMes] = useState(11);
+  const [pieOff, setPieOff] = useState({});
   const [view, setView] = useState("proj"), [rm, setRm] = useState(0);
   const setActual = (m, kind, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur[kind] = { ...(cur[kind] || {}), [id]: val }; acts[m] = cur; return { ...x, actuals: acts }; });
   const setActualIng = (m, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur.ingreso = val; acts[m] = cur; return { ...x, actuals: acts }; });
@@ -397,6 +399,7 @@ function Planner({ auth, initialData, onLogout }) {
   const updInp = (fn) => setProfiles((ps) => ps.map((p) => (p.id === activeId ? { ...p, inp: fn(p.inp) } : p)));
   const set = (patch) => updInp((x) => ({ ...x, ...patch }));
   const setIng = (k, v) => updInp((x) => ({ ...x, ingreso: { ...x.ingreso, [k]: v } }));
+  const setEscN = (k, v) => updInp((x) => ({ ...x, escNombres: { ...(x.escNombres || {}), [k]: v } }));
   const setArr = (key, m, v) => updInp((x) => ({ ...x, [key]: x[key].map((y, k) => (k === m ? v : y)) }));
   const editItem = (arr, id, patch) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => (it.id === id ? { ...it, ...patch } : it)) }));
   const addItem = (arr, item) => updInp((x) => ({ ...x, [arr]: [...x[arr], { id: uid(), ...item }] }));
@@ -494,7 +497,7 @@ function Planner({ auth, initialData, onLogout }) {
             <Panel eb="Ingreso · 4 escenarios" title="Labor mensual (bruto)">
               {SCEN.map((k) => (
                 <div className="row" key={k}>
-                  <span style={{ fontSize: 13, color: SCC[k] }}>{SCL[k]}</span>
+                  <input className="nam" value={i.escNombres?.[k] ?? SCL[k]} onChange={(e) => setEscN(k, e.target.value)} style={{ color: SCC[k], fontWeight: 600, maxWidth: 160 }} />
                   <span className="mono" style={{ color: P.muted, fontSize: 13 }}>$<input className="num mono" type="number" value={i.ingreso[k]} onChange={(e) => setIng(k, +e.target.value || 0)} /></span>
                 </div>
               ))}
@@ -608,7 +611,7 @@ function Planner({ auth, initialData, onLogout }) {
                   const c = e.allIn < 0 ? P.critical : SCC[e.s];
                   return (
                     <div key={e.s} style={{ background: P.faint, border: `1px solid ${P.line}`, borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontSize: 11, color: SCC[e.s] }}>{SCL[e.s]}</div>
+                      <div style={{ fontSize: 11, color: SCC[e.s] }}>{i.escNombres?.[e.s] ?? SCL[e.s]}</div>
                       <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: c, marginTop: 2 }}>{money(e.allIn)}</div>
                       <div style={{ height: 5, borderRadius: 3, background: P.line, marginTop: 6 }}><div style={{ height: "100%", borderRadius: 3, width: `${(Math.abs(e.allIn) / maxAbs) * 100}%`, background: c }} /></div>
                     </div>
@@ -651,7 +654,7 @@ function Planner({ auth, initialData, onLogout }) {
             <Panel eb="Horizonte · cliqueá cada mes para cambiar su escenario" title="Proyección: deuda restante mes a mes">
               <div style={{ display: "grid", gridTemplateColumns: `repeat(${H},1fr)`, gap: 2, alignItems: "end" }}>
                 {r.flujo.map((f, idx) => (
-                  <div key={idx} onClick={() => cycle(idx)} title={`${mlabel(idx)}: ${SCL[f.sc]} · deuda ${money(f.deudaTot)}`} style={{ cursor: "pointer", textAlign: "center" }}>
+                  <div key={idx} onClick={() => cycle(idx)} title={`${mlabel(idx)}: ${i.escNombres?.[f.sc] ?? SCL[f.sc]} · deuda ${money(f.deudaTot)}`} style={{ cursor: "pointer", textAlign: "center" }}>
                     <div style={{ height: 64, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
                       <div style={{ width: "72%", height: 3 + (f.deudaTot / maxDeuda) * 60, background: SCC[f.sc], opacity: 0.85, borderRadius: "2px 2px 0 0" }} />
                     </div>
@@ -669,19 +672,27 @@ function Planner({ auth, initialData, onLogout }) {
             <div className="g2">
               {/* TORTA POR CATEGORÍA */}
               <Panel eb="Gasto por categoría" title="Acumulado a la fecha" right={<MonthSel v={pieMes} onChange={setPieMes} />}>
-                {pieData.arr.length === 0 ? <div style={{ fontSize: 13, color: P.muted }}>Sin datos.</div> : (
-                  <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-                    <Pie data={pieData.data} />
-                    <div style={{ flex: 1, minWidth: 130 }}>
-                      {pieData.data.slice(0, 8).map((d, k) => (
-                        <div key={k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12, marginBottom: 3 }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: 2, background: d.color }} />{d.label}</span>
-                          <span className="mono" style={{ color: P.muted }}>{pct(d.value / pieData.tot)}</span>
-                        </div>
-                      ))}
+                {pieData.data.length === 0 ? <div style={{ fontSize: 13, color: P.muted }}>Sin datos.</div> : (() => {
+                  const activeData = pieData.data.filter((d) => !pieOff[d.label]);
+                  const activeTot = activeData.reduce((a, d) => a + d.value, 0) || 1;
+                  return (
+                    <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                      <Pie data={activeData} />
+                      <div style={{ flex: 1, minWidth: 150 }}>
+                        {pieData.data.slice(0, 12).map((d, k) => {
+                          const off = !!pieOff[d.label];
+                          return (
+                            <div key={k} onClick={() => setPieOff((o) => ({ ...o, [d.label]: !o[d.label] }))} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12, marginBottom: 3, opacity: off ? 0.45 : 1 }}>
+                              <span style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: off ? "line-through" : "none" }}><span style={{ width: 10, height: 10, borderRadius: 2, background: off ? P.muted : d.color }} />{d.label}</span>
+                              <span className="mono" style={{ color: P.muted }}>{off ? "—" : pct(d.value / activeTot)}</span>
+                            </div>
+                          );
+                        })}
+                        <div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>Tocá una categoría para incluirla o quitarla del análisis.</div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </Panel>
 
               {/* TODO LO POSITIVO ACUMULADO */}
@@ -790,7 +801,6 @@ function Planner({ auth, initialData, onLogout }) {
               {r.sug.map((s, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 13, marginBottom: 10 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: sev(s.s), flexShrink: 0 }} /><span>{s.t}</span></div>))}
             </Panel>
 
-            <p className="mono" style={{ fontSize: 11, textAlign: "center", color: P.muted, marginTop: 4 }}>Cálculo local · sin servidor · sin IA · costo de cómputo $0</p>
           </div>
         </div>
         )}
