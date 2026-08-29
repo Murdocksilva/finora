@@ -173,28 +173,35 @@ function runEngine(i) {
   // ── FLUJO mes a mes (motor unificado) ──
   const deudas = i.deudas.map((d) => ({ ...d, rem: +d.saldo || 0 }));
   const cobrosSt = i.porCobrar.map((c) => ({ ...c, rem: +c.monto || 0 }));
-  let ahorroAcum = i.ahorroLiquido, sobranteAcum = 0, deudaPagAcum = 0, reservaAcum = 0, metasAcum = 0, deficitAcum = 0, deficitPrev = 0;
+  let ahorroAcum = i.ahorroLiquido, pool = 0, deudaPagAcum = 0, reservaAcum = 0, metasAcum = 0, deficitAcum = 0, cardPrev = 0;
   const flujo = i.horizonte.map((h, m) => {
     const salario = +i.ingreso[h.sc] || 0;
     let cobros = 0; cobrosSt.forEach((c) => { const g = Math.min(c.cobros?.[m] || 0, c.rem); c.rem -= g; cobros += g; });
     let deuda = 0; deudas.forEach((d) => { const p = Math.min(d.pagos?.[m] || 0, d.rem); d.rem -= p; deuda += p; });
     const metasMes = i.metas.reduce((a, g) => { const ini = g.mesInicio || 0, fin = g.mesObjetivo; return a + (fin >= ini && m >= ini && m <= fin ? (+g.monto || 0) / (fin - ini + 1) : 0); }, 0);
-    const tarjeta = deficitPrev; // déficit del mes anterior, se paga como tarjeta este mes
+    const tarjeta = cardPrev; // parte del déficit anterior que el sobrante no alcanzó a cubrir
     const base = salario + cobros - gastos - deuda - metasMes - tarjeta;
     const tgtR = salario * (i.reserva[m] || 0), tgtA = salario * (i.ahorro[m] || 0);
-    let reserva = 0, ahorro = 0, sobrante = 0, deficit = 0;
+    let reserva = 0, ahorro = 0, sobrante = 0, deficit = 0, cubierto = 0;
     if (base >= 0) {
       reserva = Math.min(base, tgtR); let r1 = base - reserva;
       ahorro = Math.min(r1, tgtA); sobrante = r1 - ahorro;
-    } else deficit = base;
-    deficitPrev = deficit < 0 ? -deficit : 0; // se arrastra al mes siguiente
-    ahorroAcum += ahorro; sobranteAcum += sobrante; reservaAcum += reserva; metasAcum += metasMes; deudaPagAcum += deuda; if (deficit < 0) deficitAcum += -deficit;
-    const patrimonioAcum = ahorroAcum + sobranteAcum;
+      pool += sobrante; cardPrev = 0;
+    } else {
+      const falta = -base;
+      cubierto = Math.min(pool, falta); pool -= cubierto; // el sobrante acumulado cubre el déficit
+      const uncovered = falta - cubierto;
+      deficit = -uncovered; cardPrev = uncovered; // solo lo no cubierto pasa a tarjeta
+    }
+    ahorroAcum += ahorro; reservaAcum += reserva; metasAcum += metasMes; deudaPagAcum += deuda; if (deficit < 0) deficitAcum += -deficit;
+    const sobranteAcum = pool;
+    const patrimonioAcum = ahorroAcum + pool;
     const deudaTot = deudas.reduce((a, d) => a + Math.max(0, d.rem), 0);
     const cobrosPend = cobrosSt.reduce((a, c) => a + Math.max(0, c.rem), 0);
-    const cardCarry = deficitPrev;
+    const cardCarry = cardPrev;
     const patrimonioNeto = patrimonioAcum + reservaAcum + cobrosPend - deudaTot - cardCarry;
-    return { m, sc: h.sc, salario, cobros, gastos, deuda, metasMes, tarjeta, reserva, ahorro, sobrante, deficit, deudaTot, cobrosPend, cardCarry, patrimonioNeto, ahorroAcum, sobranteAcum, patrimonioAcum, deudaPagAcum, reservaAcum, metasAcum, deficitAcum };
+    const resultado = base >= 0 ? sobrante : deficit;
+    return { m, sc: h.sc, salario, cobros, gastos, deuda, metasMes, tarjeta, cubierto, reserva, ahorro, sobrante, deficit, resultado, deudaTot, cobrosPend, cardCarry, patrimonioNeto, ahorroAcum, sobranteAcum, patrimonioAcum, deudaPagAcum, reservaAcum, metasAcum, deficitAcum };
   });
   const libre = anyIncome ? flujo.find((f) => f.deudaTot <= 0) : null;
   const colchon1 = anyIncome ? flujo.find((f) => f.patrimonioAcum >= gastos) : null;
@@ -296,6 +303,40 @@ const MonthSel = ({ v, onChange }) => (
   </select>
 );
 
+function RealDelta({ real, proj }) { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; }
+function RealTabla({ rows, kind, rm, setActual, pend }) {
+  return (
+    <table className="tbl"><thead><tr><th>{kind === "g" ? "Partida" : kind === "d" ? "Deuda" : "Cobro"}</th><th>Proy.</th><th>Real</th><th>Δ</th>{pend && <th>Pend.</th>}</tr></thead>
+      <tbody>{rows.map((r) => (
+        <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}` }}>
+          <td>{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
+          <td><input className="si" style={{ width: 82 }} type="number" value={r.real} onChange={(e) => setActual(rm, kind, r.id, e.target.value === "" ? 0 : +e.target.value)} /></td>
+          <td className="mono"><RealDelta real={r.real} proj={r.proj} /></td>
+          {pend && <td className="mono" style={{ color: pend(r.id) > 0 ? (kind === "d" ? P.critical : P.caution) : P.healthy }}>{money(pend(r.id))}</td>}
+        </tr>))}
+      </tbody></table>
+  );
+}
+function CmpChart({ rows, la, lb, ca, cb }) {
+  const max = Math.max(1, ...rows.flatMap((r) => [r.a, r.b]));
+  const sorted = [...rows].sort((x, y) => Math.max(y.a, y.b) - Math.max(x.a, x.b));
+  const Bar = ({ v, c }) => (<div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 13, width: `${(v / max) * 100}%`, minWidth: v > 0 ? 3 : 0, background: c, borderRadius: 2 }} /><span className="mono" style={{ fontSize: 10, color: P.muted }}>{money(v)}</span></div>);
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 16, fontSize: 11, color: P.muted, marginBottom: 8 }}>
+        <span><span style={{ display: "inline-block", width: 9, height: 9, background: ca, borderRadius: 2, marginRight: 4 }} />{la}</span>
+        <span><span style={{ display: "inline-block", width: 9, height: 9, background: cb, borderRadius: 2, marginRight: 4 }} />{lb}</span>
+      </div>
+      {sorted.length === 0 && <div style={{ fontSize: 12, color: P.muted }}>Sin datos.</div>}
+      {sorted.map((r, k) => (
+        <div key={k} style={{ marginBottom: 9 }}>
+          <div style={{ fontSize: 12, marginBottom: 2 }}>{r.n}</div>
+          <div style={{ display: "grid", gap: 2 }}><Bar v={r.a} c={ca} /><Bar v={r.b} c={cb} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
 function RealView({ i, rm, setRm, setActual, setActualIng }) {
   const A = (i.actuals && i.actuals[rm]) || {};
   const projIng = i.ingreso[i.horizonte[rm] ? i.horizonte[rm].sc : "e2"] || 0;
@@ -308,38 +349,34 @@ function RealView({ i, rm, setRm, setActual, setActualIng }) {
   const projRes = projIng + projC - projG - projD, realRes = realIng + realC - realG - realD;
   const pagadoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.d && mm.d[id]) || 0), 0);
   const cobradoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.c && mm.c[id]) || 0), 0);
-  const alertas = grows.filter((r) => r.proj > 0 && Math.abs(r.real - r.proj) / r.proj > 0.15 && Math.abs(r.real - r.proj) > 1).map((r) => ({ n: r.n, proj: r.proj, real: r.real, d: (r.real - r.proj) / r.proj }));
-  const Delta = ({ real, proj }) => { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; };
-  const Tabla = ({ rows, kind, pend }) => (
-    <table className="tbl"><thead><tr><th>{kind === "g" ? "Partida" : kind === "d" ? "Deuda" : "Cobro"}</th><th>Proy.</th><th>Real</th><th>Δ</th>{pend && <th>Pendiente</th>}</tr></thead>
-      <tbody>{rows.map((r) => (
-        <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}` }}>
-          <td>{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
-          <td><input className="si" style={{ width: 78 }} type="number" value={r.real} onChange={(e) => setActual(rm, kind, r.id, +e.target.value || 0)} /></td>
-          <td className="mono"><Delta real={r.real} proj={r.proj} /></td>
-          {pend && <td className="mono" style={{ color: pend(r.id) > 0 ? (kind === "d" ? P.critical : P.caution) : P.healthy }}>{money(pend(r.id))}</td>}
-        </tr>))}
-      </tbody></table>
-  );
+  const metaRows = i.metas.map((g) => { const ini = g.mesInicio || 0, fin = g.mesObjetivo, span = Math.max(1, fin - ini + 1), cuota = (+g.monto || 0) / span, elapsed = Math.max(0, Math.min(rm, fin) - ini + 1); return { n: g.n, a: +g.monto || 0, b: rm >= ini ? cuota * Math.min(elapsed, span) : 0 }; });
   return (
-    <div className="gcol" style={{ maxWidth: 780, margin: "0 auto" }}>
+    <div className="gcol" style={{ maxWidth: 820, margin: "0 auto" }}>
       <Panel eb="Registro real · lo que pasó de verdad" title="Cargá el mes en curso" right={<MonthSel v={rm} onChange={setRm} />}>
         <p style={{ fontSize: 13, color: P.muted, marginTop: 0 }}>Estás cargando <b style={{ color: P.ink }}>{mlabel(rm)}</b>. Los campos vienen con lo proyectado; cambiá solo lo que fue distinto.</p>
-        <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ingreso real</span><span className="mono" style={{ fontSize: 13, color: P.muted }}>proy {money(projIng)} → $<input className="num mono" type="number" value={realIng} onChange={(e) => setActualIng(rm, +e.target.value || 0)} /></span></div>
+        <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ingreso real</span><span className="mono" style={{ fontSize: 13, color: P.muted }}>proy {money(projIng)} → $<input className="num mono" type="number" value={realIng} onChange={(e) => setActualIng(rm, e.target.value === "" ? 0 : +e.target.value)} /></span></div>
       </Panel>
-      <Panel eb="Gastos reales" title="Proyectado vs real"><Tabla rows={grows} kind="g" /><div className="mono" style={{ textAlign: "right", fontSize: 12, marginTop: 6 }}>Total real {money(realG)} · proy {money(projG)}</div></Panel>
-      <Panel eb="Deuda pagada real" title="Proyectado vs real"><Tabla rows={drows} kind="d" pend={(id) => Math.max(0, (+(i.deudas.find((x) => x.id === id) || {}).saldo || 0) - pagadoReal(id))} /></Panel>
-      <Panel eb="Cobros reales" title="Proyectado vs real"><Tabla rows={crows} kind="c" pend={(id) => Math.max(0, (+(i.porCobrar.find((x) => x.id === id) || {}).monto || 0) - cobradoReal(id))} /></Panel>
+      <Panel eb="Gastos" title="Real vs proyectado por partida">
+        <RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} />
+        <div style={{ marginTop: 12 }}><CmpChart rows={grows.map((r) => ({ n: r.n, a: r.proj, b: r.real }))} la="Proyectado" lb="Real" ca="#9AA6B2" cb={P.teal} /></div>
+      </Panel>
+      <Panel eb="Deuda" title="Real vs proyectado por deuda">
+        <RealTabla rows={drows} kind="d" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.deudas.find((x) => x.id === id) || {}).saldo || 0) - pagadoReal(id))} />
+        <div style={{ marginTop: 12 }}><CmpChart rows={drows.map((r) => ({ n: r.n, a: r.proj, b: r.real }))} la="Proyectado" lb="Real" ca="#9AA6B2" cb={P.critical} /></div>
+      </Panel>
+      <Panel eb="Cuentas por cobrar" title="Real vs proyectado por cobro">
+        <RealTabla rows={crows} kind="c" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.porCobrar.find((x) => x.id === id) || {}).monto || 0) - cobradoReal(id))} />
+        <div style={{ marginTop: 12 }}><CmpChart rows={crows.map((r) => ({ n: r.n, a: r.proj, b: r.real }))} la="Proyectado" lb="Real" ca="#9AA6B2" cb={P.healthy} /></div>
+      </Panel>
+      <Panel eb="Metas" title="Meta total vs acumulado a la fecha">
+        <CmpChart rows={metaRows} la="Meta total" lb="Acumulado" ca="#C9C2B4" cb={P.teal} />
+      </Panel>
       <Panel eb="Resultado del mes" title="Real vs proyectado">
         <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
           <div><div style={{ fontSize: 11, color: P.muted }}>Proyectado</div><div className="mono" style={{ fontSize: 20, color: projRes < 0 ? P.critical : P.ink }}>{money(projRes)}</div></div>
           <div><div style={{ fontSize: 11, color: P.muted }}>Real</div><div className="mono" style={{ fontSize: 20, fontWeight: 700, color: realRes < 0 ? P.critical : P.healthy }}>{money(realRes)}</div></div>
           <div><div style={{ fontSize: 11, color: P.muted }}>Diferencia</div><div className="mono" style={{ fontSize: 20, color: (realRes - projRes) < 0 ? P.critical : P.healthy }}>{money(realRes - projRes)}</div></div>
         </div>
-      </Panel>
-      <Panel eb="Diferencias con la proyección" title="Dónde te desviaste">
-        {alertas.length === 0 ? <div style={{ fontSize: 13, color: P.healthy }}>Sin desvíos grandes en {mlabel(rm)}. Vas según lo proyectado.</div> :
-          alertas.map((a, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 13, marginBottom: 8 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: a.d > 0 ? P.critical : P.healthy, flexShrink: 0 }} /><span><b>{a.n}:</b> proyectaste {money(a.proj)}, real {money(a.real)} ({a.d > 0 ? "+" : ""}{pct(a.d)}). {a.d > 0 ? "Considerá subir esta partida en la proyección." : "Te sobró margen; podrías bajarla."}</span></div>))}
       </Panel>
     </div>
   );
@@ -426,7 +463,7 @@ export default function App() {
 
         {/* NOMBRE GRANDE */}
         <header style={{ marginBottom: 20 }}>
-          <div className="eb mono">Planificador financiero · sin IA · corre en el dispositivo</div>
+          <div className="eb mono">Planificador financiero</div>
           <input value={active.nombre} onChange={(e) => renameProfile(e.target.value)} style={{ fontSize: 40, fontWeight: 800, color: P.ink, border: "none", background: "transparent", padding: 0, width: "100%" }} />
           <div style={{ marginTop: 4 }}><span style={{ fontSize: 12, color: P.muted }}>Proyección al: <input type="date" value={i.fechaProy || ""} onChange={(e) => set({ fechaProy: e.target.value })} style={{ fontSize: 12, padding: "3px 6px" }} /></span></div>
           <div style={{ display: "flex", gap: 10, marginTop: 14, borderBottom: `1px solid ${P.line}` }}>
@@ -575,8 +612,8 @@ export default function App() {
                   <thead><tr><th>Mes</th><th>Salario</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Déf. ant.</th><th>Metas</th><th>Reserva</th><th>Ahorro</th><th>Resultado</th></tr></thead>
                   <tbody>
                     {r.flujo.map((f) => {
-                      const res = f.deficit < 0 ? f.deficit : f.sobrante;
-                      const label = f.deficit < 0 ? "Déficit" : f.sobrante > 0 ? "Sobra" : "—";
+                      const res = f.resultado;
+                      const label = f.deficit < 0 ? "Déficit" : f.cubierto > 0 ? "Cubierto" : f.sobrante > 0 ? "Sobra" : "—";
                       return (
                         <tr key={f.m} style={{ borderBottom: `1px solid ${P.faint}` }}>
                           <td style={{ color: SCC[f.sc] }}>{mlabel(f.m)}</td>
