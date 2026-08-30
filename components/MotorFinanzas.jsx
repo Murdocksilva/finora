@@ -37,6 +37,20 @@ function metaAporte(g, m) {
   }
   return (+g.monto || 0) / (fin - ini + 1);
 }
+const provKeys = { deudas: { list: "pagosProv", tot: "pagos", lbl: "Proveedor" }, porCobrar: { list: "cobrosProv", tot: "cobros", lbl: "Pagador" } };
+function recalcTot(it, k) { const list = it[k.list] || []; const tot = []; for (let m = 0; m < H; m++) tot.push((list[m] || []).reduce((a, p) => a + (+p.monto || 0), 0)); return { ...it, [k.tot]: tot }; }
+function normProv(prov, tot, lbl) {
+  const out = [];
+  for (let m = 0; m < H; m++) {
+    if (Array.isArray(prov) && Array.isArray(prov[m]) && prov[m].length) {
+      out.push(prov[m].map((p) => ({ id: typeof p.id === "number" ? p.id : uid(), prov: p.prov || (lbl + " 1"), monto: +p.monto || 0 })));
+    } else {
+      const v = (tot && tot[m]) || 0;
+      out.push(v > 0 ? [{ id: uid(), prov: lbl + " 1", monto: v }] : []);
+    }
+  }
+  return out;
+}
 const pad = (a) => { const b = a.slice(0, H); while (b.length < H) b.push(0); return b; };
 
 const CSS = `
@@ -118,8 +132,8 @@ function normInp(inp) {
   x.ahorro = Array.isArray(inp.ahorro) ? pad(inp.ahorro.map(Number)) : Array(H).fill(0);
   x.categorias = (inp.categorias && inp.categorias.length) ? inp.categorias : [...CATS0];
   x.gastosItems = (inp.gastosItems || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", m: 0, cat: CATS0[0], ...g }));
-  x.deudas = (inp.deudas || []).map((d) => ({ id: typeof d.id === "number" ? d.id : uid(), n: "", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", ...d, pagos: pad((d.pagos || []).map(Number)) }));
-  x.porCobrar = (inp.porCobrar || []).map((c) => ({ id: typeof c.id === "number" ? c.id : uid(), n: "", monto: 0, ambito: "personal", cat: "INVERSIONES", ...c, cobros: pad((c.cobros || []).map(Number)) }));
+  x.deudas = (inp.deudas || []).map((d) => { const base = { id: typeof d.id === "number" ? d.id : uid(), n: "", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", ...d, pagos: pad((d.pagos || []).map(Number)) }; const pp = normProv(base.pagosProv, base.pagos, "Proveedor"); return { ...base, pagosProv: pp, pagos: pad(pp.map((mo) => mo.reduce((a, p) => a + (+p.monto || 0), 0))) }; });
+  x.porCobrar = (inp.porCobrar || []).map((c) => { const base = { id: typeof c.id === "number" ? c.id : uid(), n: "", monto: 0, ambito: "personal", cat: "INVERSIONES", ...c, cobros: pad((c.cobros || []).map(Number)) }; const cp = normProv(base.cobrosProv, base.cobros, "Pagador"); return { ...base, cobrosProv: cp, cobros: pad(cp.map((mo) => mo.reduce((a, p) => a + (+p.monto || 0), 0))) }; });
   x.metas = (inp.metas || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", monto: 0, mesInicio: 0, mesObjetivo: 11, modo: "auto", mesesOff: {}, ...g }));
   x.actuals = inp.actuals && typeof inp.actuals === "object" ? inp.actuals : {};
   x.fechaProy = inp.fechaProy || hoy();
@@ -314,7 +328,88 @@ const MonthSel = ({ v, onChange }) => (
     {Array.from({ length: H }, (_, m) => <option key={m} value={m}>{mlabel(m)}</option>)}
   </select>
 );
+function aggProv(items, listKey) {
+  const byMonth = {};
+  items.forEach((it) => {
+    (it[listKey] || []).forEach((monthArr, m) => {
+      (monthArr || []).forEach((p) => {
+        const name = (p.prov || "").trim() || "—";
+        if (!byMonth[name]) byMonth[name] = Array(H).fill(0);
+        byMonth[name][m] += (+p.monto || 0);
+      });
+    });
+  });
+  const byTotal = {}; let grand = 0;
+  Object.entries(byMonth).forEach(([n, arr]) => { const t = arr.reduce((a, x) => a + x, 0); byTotal[n] = t; grand += t; });
+  return { byMonth, byTotal, grand, names: Object.keys(byTotal).sort((a, b) => byTotal[b] - byTotal[a]) };
+}
+function ProvChart({ agg, sel, color }) {
+  if (sel === "__all__") {
+    const entries = agg.names.map((n) => [n, agg.byTotal[n]]).filter(([, v]) => v > 0);
+    const max = Math.max(1, ...entries.map(([, v]) => v));
+    if (!entries.length) return <div style={{ fontSize: 12, color: P.muted }}>Sin desglose por proveedor todavía.</div>;
+    return (
+      <div>
+        {entries.map(([n, v], k) => (
+          <div key={k} style={{ marginBottom: 7 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}><span>{n}</span><span className="mono" style={{ color: P.muted }}>{money(v)} · {pct(v / (agg.grand || 1))}</span></div>
+            <div style={{ height: 11, background: P.faint, borderRadius: 3 }}><div style={{ height: "100%", width: `${(v / max) * 100}%`, background: color, borderRadius: 3 }} /></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const arr = agg.byMonth[sel] || Array(H).fill(0);
+  const max = Math.max(1, ...arr);
+  const tot = arr.reduce((a, x) => a + x, 0);
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 84 }}>
+        {arr.map((v, m) => <div key={m} title={`${mlabel(m)}: ${money(v)}`} style={{ flex: 1, background: color, opacity: 0.85, height: `${Math.max(2, (v / max) * 100)}%`, borderRadius: "2px 2px 0 0" }} />)}
+      </div>
+      <div style={{ marginTop: 8, fontSize: 13 }}>Total a <b>{sel}</b>: <b className="mono" style={{ color }}>{money(tot)}</b></div>
+    </div>
+  );
+}
 
+function SchedProv({ item, arr, saldo, provAdd, provDel, provEdit }) {
+  const k = provKeys[arr];
+  const [open, setOpen] = useState(false);
+  const [sel, setSel] = useState(0);
+  const list = item[k.list] || [];
+  const tot = item[k.tot] || [];
+  const prog = tot.reduce((a, x) => a + (+x || 0), 0);
+  const provNames = Array.from(new Set(list.flat().map((p) => p && p.prov).filter(Boolean)));
+  const monthProvs = list[sel] || [];
+  const monthTot = monthProvs.reduce((a, p) => a + (+p.monto || 0), 0);
+  return (
+    <div style={{ marginTop: 4 }}>
+      <button className="btn" style={{ fontSize: 11, padding: "3px 7px" }} onClick={() => setOpen((o) => !o)}>{open ? "▾" : "▸"} cronograma · <span className="mono" style={{ color: Math.abs(prog - saldo) > 1 ? P.caution : P.teal }}>{money(prog)}{saldo ? ` / ${money(saldo)}` : ""}</span></button>
+      {open && (
+        <div style={{ marginTop: 6, padding: 8, background: P.faint, borderRadius: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 3, marginBottom: 8 }}>
+            {tot.map((v, m) => (
+              <button key={m} onClick={() => setSel(m)} style={{ cursor: "pointer", border: `1px solid ${m === sel ? P.teal : P.line}`, background: m === sel ? P.teal : "#fff", color: m === sel ? "#fff" : (v > 0 ? P.ink : P.muted), borderRadius: 4, padding: "3px 1px", fontSize: 8, lineHeight: 1.3 }}>
+                {mlabel(m)}<br /><span className="mono">{v ? money(v) : "·"}</span>
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{mlabel(sel)} · total <span className="mono" style={{ color: P.teal }}>{money(monthTot)}</span></div>
+          <datalist id={`prov-${arr}-${item.id}`}>{provNames.map((n) => <option key={n} value={n} />)}</datalist>
+          {monthProvs.map((p) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+              <input list={`prov-${arr}-${item.id}`} value={p.prov} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "3px 6px", border: `1px solid ${P.line}`, borderRadius: 4, background: "#fff" }} />
+              <span className="mono" style={{ fontSize: 12, color: P.muted }}>$<input className="si" style={{ width: 72 }} type="number" value={p.monto} onChange={(e) => provEdit(arr, item.id, sel, p.id, { monto: +e.target.value || 0 })} /></span>
+              <button className="x" onClick={() => provDel(arr, item.id, sel, p.id)}>×</button>
+            </div>
+          ))}
+          {monthProvs.length === 0 && <div style={{ fontSize: 11, color: P.muted, marginBottom: 4 }}>Sin desglose este mes.</div>}
+          <button className="btn" style={{ fontSize: 11 }} onClick={() => provAdd(arr, item.id, sel)}>+ {k.lbl.toLowerCase()}</button>
+        </div>
+      )}
+    </div>
+  );
+}
 function RealDelta({ real, proj }) { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; }
 function RealTabla({ rows, kind, rm, setActual, pend }) {
   return (
@@ -402,6 +497,7 @@ function Planner({ auth, initialData, onLogout }) {
   const i = active.inp;
   const [pieMes, setPieMes] = useState(5), [ahoMes, setAhoMes] = useState(11), [deuMes, setDeuMes] = useState(11), [netoMes, setNetoMes] = useState(11);
   const [pieOff, setPieOff] = useState({});
+  const [deuProv, setDeuProv] = useState("__all__"), [cobProv, setCobProv] = useState("__all__");
   const [view, setView] = useState("proj"), [rm, setRm] = useState(0);
   const setActual = (m, kind, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur[kind] = { ...(cur[kind] || {}), [id]: val }; acts[m] = cur; return { ...x, actuals: acts }; });
   const setActualIng = (m, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur.ingreso = val; acts[m] = cur; return { ...x, actuals: acts }; });
@@ -417,6 +513,9 @@ function Planner({ auth, initialData, onLogout }) {
   const delItem = (arr, id) => updInp((x) => ({ ...x, [arr]: x[arr].filter((it) => it.id !== id) }));
   const cycle = (idx) => updInp((x) => { const h = [...x.horizonte]; h[idx] = { sc: SCEN[(SCEN.indexOf(h[idx].sc) + 1) % 4] }; return { ...x, horizonte: h }; });
   const setSched = (arr, id, key, m, val) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => (it.id === id ? { ...it, [key]: it[key].map((y, k) => (k === m ? val : y)) } : it)) }));
+  const provAdd = (arr, id, m) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); const cur = list[m] || []; list[m] = [...cur, { id: uid(), prov: k.lbl + " " + (cur.length + 1), monto: 0 }]; return recalcTot({ ...it, [k.list]: list }, k); }) }));
+  const provDel = (arr, id, m, pid) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); list[m] = (list[m] || []).filter((p) => p.id !== pid); return recalcTot({ ...it, [k.list]: list }, k); }) }));
+  const provEdit = (arr, id, m, pid, patch) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); list[m] = (list[m] || []).map((p) => (p.id === pid ? { ...p, ...patch } : p)); return recalcTot({ ...it, [k.list]: list }, k); }) }));
   const addCat = () => { const c = newCat.trim().toUpperCase(); if (c && !i.categorias.includes(c)) updInp((x) => ({ ...x, categorias: [...x.categorias, c] })); setNewCat(""); };
 
   const newProfile = () => { const id = uid(); setProfiles((ps) => [...ps, { id, nombre: "Nuevo usuario", inp: blankInp() }]); setActiveId(id); };
@@ -463,6 +562,8 @@ function Planner({ auth, initialData, onLogout }) {
   const pasivos = (fNeto.deudaTot || 0) + (fNeto.cardCarry || 0);
   const deuData = r.flujo.slice(0, deuMes + 1);
   const deuPagMax = Math.max(...deuData.map((f) => f.deuda), 1);
+  const aggDeuda = useMemo(() => aggProv(i.deudas, "pagosProv"), [i.deudas]);
+  const aggCobro = useMemo(() => aggProv(i.porCobrar, "cobrosProv"), [i.porCobrar]);
   const deuTotAtMes = r.flujo[deuMes]?.deudaTot || 0;
   const deuPagTot = r.flujo[deuMes]?.deudaPagAcum || 0;
 
@@ -567,11 +668,11 @@ function Planner({ auth, initialData, onLogout }) {
                     <CatSel v={d.cat} cats={i.categorias} onChange={(c) => editItem("deudas", d.id, { cat: c })} />
                     <span style={{ fontSize: 12, color: P.muted }}>saldo <input className="num mono" type="number" value={d.saldo} onChange={(e) => editItem("deudas", d.id, { saldo: +e.target.value || 0 })} /></span>
                   </div>
-                  <Grid24 arr={d.pagos} onSet={(m, v) => setSched("deudas", d.id, "pagos", m, v)} extra={`· programado ${money(d.pagos.reduce((a, x) => a + x, 0))} / ${money(+d.saldo || 0)}`} />
+                  <SchedProv item={d} arr="deudas" saldo={+d.saldo || 0} provAdd={provAdd} provDel={provDel} provEdit={provEdit} />
                 </div>
               ))}
               {i.deudas.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin deudas.</div>}
-              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("deudas", { n: "Nueva deuda", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", pagos: z() })}>+ Agregar deuda</button>
+              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("deudas", { n: "Nueva deuda", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", pagos: z(), pagosProv: Array.from({ length: H }, () => []) })}>+ Agregar deuda</button>
             </Panel>
 
             <Panel eb="Cuentas por cobrar" title="Lo que te deben">
@@ -585,11 +686,11 @@ function Planner({ auth, initialData, onLogout }) {
                   <div className="row" style={{ padding: "2px 0" }}>
                     <span style={{ fontSize: 12, color: P.muted }}>monto <input className="num mono" type="number" value={c.monto} onChange={(e) => editItem("porCobrar", c.id, { monto: +e.target.value || 0 })} /></span>
                   </div>
-                  <Grid24 arr={c.cobros} onSet={(m, v) => setSched("porCobrar", c.id, "cobros", m, v)} extra={`· programado ${money(c.cobros.reduce((a, x) => a + x, 0))} / ${money(+c.monto || 0)}`} />
+                  <SchedProv item={c} arr="porCobrar" saldo={+c.monto || 0} provAdd={provAdd} provDel={provDel} provEdit={provEdit} />
                 </div>
               ))}
               {i.porCobrar.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin cuentas por cobrar.</div>}
-              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("porCobrar", { n: "Nuevo cobro", monto: 0, ambito: "personal", cat: "INVERSIONES", cobros: z() })}>+ Agregar cobro</button>
+              <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("porCobrar", { n: "Nuevo cobro", monto: 0, ambito: "personal", cat: "INVERSIONES", cobros: z(), cobrosProv: Array.from({ length: H }, () => []) })}>+ Agregar cobro</button>
             </Panel>
 
             <Panel eb="Metas" title="Objetivos con fecha">
@@ -757,6 +858,24 @@ function Planner({ auth, initialData, onLogout }) {
                 <span style={{ color: P.muted }}>Pagado en el período: <b className="mono" style={{ color: P.ink }}>{money(deuPagTot)}</b></span>
                 <span style={{ color: P.muted }}>Deuda restante a {mlabel(deuMes)}: <b className="mono" style={{ color: deuTotAtMes > 0 ? P.critical : P.healthy }}>{money(deuTotAtMes)}</b></span>
               </div>
+            </Panel>
+
+            {/* DEUDA POR PROVEEDOR */}
+            <Panel eb="Deuda por proveedor" title={deuProv === "__all__" ? "Cuánto le debés a cada uno" : "Pago mes a mes"} right={
+              <select className="sel" style={{ maxWidth: 150 }} value={deuProv} onChange={(e) => setDeuProv(e.target.value)}>
+                <option value="__all__">Deuda total</option>
+                {aggDeuda.names.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>}>
+              <ProvChart agg={aggDeuda} sel={deuProv} color={P.critical} />
+            </Panel>
+
+            {/* COBROS POR PAGADOR */}
+            <Panel eb="Cobros por pagador" title={cobProv === "__all__" ? "Cuánto te debe cada uno" : "Cobro mes a mes"} right={
+              <select className="sel" style={{ maxWidth: 150 }} value={cobProv} onChange={(e) => setCobProv(e.target.value)}>
+                <option value="__all__">Cobro total</option>
+                {aggCobro.names.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>}>
+              <ProvChart agg={aggCobro} sel={cobProv} color={P.healthy} />
             </Panel>
 
             {/* PATRIMONIO NETO — foto para análisis */}
