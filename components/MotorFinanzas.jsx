@@ -436,6 +436,47 @@ function GBars({ rows, color, lblA, lblB }) {
     </div>
   );
 }
+function RealProvTabla({ items, kind, rm, actuals, setActualProv }) {
+  const key = kind === "d" ? "dp" : "cp";
+  const listKey = kind === "d" ? "pagosProv" : "cobrosProv";
+  const totKey = kind === "d" ? "pagos" : "cobros";
+  const A = actuals && actuals[rm] ? actuals[rm] : {};
+  const grp = A[key] || {};
+  return (
+    <table className="tbl">
+      <thead><tr><th>{kind === "d" ? "Deuda / proveedor" : "Cobro / pagador"}</th><th>Proy.</th><th>Real</th><th>Δ</th></tr></thead>
+      <tbody>
+        {items.map((it) => {
+          const names = Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean)));
+          if (!names.length) names.push(kind === "d" ? "Proveedor 1" : "Pagador 1");
+          const monthList = (it[listKey] || [])[rm] || [];
+          const projFor = (name) => monthList.filter((p) => p.prov === name).reduce((a, p) => a + (+p.monto || 0), 0);
+          const realFor = (name) => (grp[it.id] || {})[name] || 0;
+          const projTot = (it[totKey] || [])[rm] || 0;
+          const realTot = names.reduce((a, n) => a + (+realFor(n) || 0), 0);
+          return (
+            <React.Fragment key={it.id}>
+              <tr style={{ borderTop: `1px solid ${P.line}` }}>
+                <td style={{ fontWeight: 600 }}>{it.n}</td>
+                <td className="mono" style={{ color: P.muted }}>{money(projTot)}</td>
+                <td className="mono" style={{ fontWeight: 600 }}>{money(realTot)}</td>
+                <td className="mono"><RealDelta real={realTot} proj={projTot} /></td>
+              </tr>
+              {names.map((n) => (
+                <tr key={n} style={{ borderBottom: `1px solid ${P.faint}` }}>
+                  <td style={{ paddingLeft: 16, color: P.muted }}>{n}</td>
+                  <td className="mono" style={{ color: P.muted }}>{money(projFor(n))}</td>
+                  <td><input className="si" style={{ width: 82 }} type="number" value={realFor(n)} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? 0 : +e.target.value)} /></td>
+                  <td className="mono"><RealDelta real={+realFor(n) || 0} proj={projFor(n)} /></td>
+                </tr>
+              ))}
+            </React.Fragment>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
 function RealDelta({ real, proj }) { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; }
 function RealTabla({ rows, kind, rm, setActual, pend }) {
   return (
@@ -470,20 +511,22 @@ function CmpChart({ rows, la, lb, ca, cb }) {
     </div>
   );
 }
-function RealView({ i, rm, setRm, setActual, setActualIng }) {
+function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
   const A = (i.actuals && i.actuals[rm]) || {};
   const projIng = i.ingreso[i.horizonte[rm] ? i.horizonte[rm].sc : "e2"] || 0;
   const realIng = A.ingreso != null ? A.ingreso : projIng;
+  const realDebt = (m, id) => { const mm = i.actuals && i.actuals[m]; const g = mm && mm.dp && mm.dp[id]; if (g) return Object.values(g).reduce((a, v) => a + (+v || 0), 0); return (mm && mm.d && mm.d[id]) || 0; };
+  const realCob = (m, id) => { const mm = i.actuals && i.actuals[m]; const g = mm && mm.cp && mm.cp[id]; if (g) return Object.values(g).reduce((a, v) => a + (+v || 0), 0); return (mm && mm.c && mm.c[id]) || 0; };
   const grows = i.gastosItems.map((it) => ({ id: it.id, n: it.n, proj: +it.m || 0, real: A.g && A.g[it.id] != null ? A.g[it.id] : (+it.m || 0) }));
-  const drows = i.deudas.map((d) => ({ id: d.id, n: d.n, proj: d.pagos?.[rm] || 0, real: A.d && A.d[d.id] != null ? A.d[d.id] : (d.pagos?.[rm] || 0) }));
-  const crows = i.porCobrar.map((c) => ({ id: c.id, n: c.n, proj: c.cobros?.[rm] || 0, real: A.c && A.c[c.id] != null ? A.c[c.id] : (c.cobros?.[rm] || 0) }));
+  const drows = i.deudas.map((d) => ({ id: d.id, n: d.n, proj: d.pagos?.[rm] || 0, real: realDebt(rm, d.id) }));
+  const crows = i.porCobrar.map((c) => ({ id: c.id, n: c.n, proj: c.cobros?.[rm] || 0, real: realCob(rm, c.id) }));
   const sum = (rows, k) => rows.reduce((a, r) => a + r[k], 0);
   const projG = sum(grows, "proj"), realG = sum(grows, "real"), projD = sum(drows, "proj"), realD = sum(drows, "real"), projC = sum(crows, "proj"), realC = sum(crows, "real");
   const projRes = projIng + projC - projG - projD, realRes = realIng + realC - realG - realD;
-  const pagadoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.d && mm.d[id]) || 0), 0);
-  const cobradoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.c && mm.c[id]) || 0), 0);
-  const pagadoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) { const mm = i.actuals && i.actuals[m]; if (mm && mm.d) s += (mm.d[id] || 0); } return s; };
-  const cobradoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) { const mm = i.actuals && i.actuals[m]; if (mm && mm.c) s += (mm.c[id] || 0); } return s; };
+  const pagadoReal = (id) => { let s = 0; for (const m in (i.actuals || {})) s += realDebt(m, id); return s; };
+  const cobradoReal = (id) => { let s = 0; for (const m in (i.actuals || {})) s += realCob(m, id); return s; };
+  const pagadoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) s += realDebt(m, id); return s; };
+  const cobradoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) s += realCob(m, id); return s; };
   const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= rm; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
   const rubros = [
     { n: "Ingreso", proj: projIng, real: realIng, pos: true },
@@ -528,8 +571,8 @@ function RealView({ i, rm, setRm, setActual, setActualIng }) {
       </Panel>
 
       <Panel eb="Gastos" title="Detalle real por partida"><RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} /></Panel>
-      <Panel eb="Deuda" title="Detalle real por deuda"><RealTabla rows={drows} kind="d" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.deudas.find((x) => x.id === id) || {}).saldo || 0) - pagadoReal(id))} /><div style={{ marginTop: 16 }}><GBars rows={i.deudas.map((d) => ({ n: d.n, a: +d.saldo || 0, b: pagadoHasta(d.id) }))} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(rm)}`} /></div></Panel>
-      <Panel eb="Cuentas por cobrar" title="Detalle real por cobro"><RealTabla rows={crows} kind="c" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.porCobrar.find((x) => x.id === id) || {}).monto || 0) - cobradoReal(id))} /><div style={{ marginTop: 16 }}><GBars rows={i.porCobrar.map((c) => ({ n: c.n, a: +c.monto || 0, b: cobradoHasta(c.id) }))} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(rm)}`} /></div></Panel>
+      <Panel eb="Deuda" title="Detalle real por proveedor"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /><div style={{ marginTop: 16 }}><GBars rows={i.deudas.map((d) => ({ n: d.n, a: +d.saldo || 0, b: pagadoHasta(d.id) }))} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(rm)}`} /></div></Panel>
+      <Panel eb="Cuentas por cobrar" title="Detalle real por pagador"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /><div style={{ marginTop: 16 }}><GBars rows={i.porCobrar.map((c) => ({ n: c.n, a: +c.monto || 0, b: cobradoHasta(c.id) }))} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(rm)}`} /></div></Panel>
       <Panel eb="Metas" title="Avance a la fecha">
         {metaRows.length === 0 ? <div style={{ fontSize: 13, color: P.muted }}>Sin metas.</div> : (
           <>
@@ -559,6 +602,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const [view, setView] = useState("proj"), [rm, setRm] = useState(0);
   const setActual = (m, kind, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur[kind] = { ...(cur[kind] || {}), [id]: val }; acts[m] = cur; return { ...x, actuals: acts }; });
   const setActualIng = (m, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur.ingreso = val; acts[m] = cur; return { ...x, actuals: acts }; });
+  const setActualProv = (m, kind, itemId, prov, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, dp: {}, cp: {}, ...(acts[m] || {}) }; const key = kind === "d" ? "dp" : "cp"; const grp = { ...(cur[key] || {}) }; const it = { ...(grp[itemId] || {}) }; it[prov] = val; grp[itemId] = it; cur[key] = grp; acts[m] = cur; return { ...x, actuals: acts }; });
   const [newCat, setNewCat] = useState("");
 
   const updInp = (fn) => setProfiles((ps) => ps.map((p) => (p.id === activeId ? { ...p, inp: fn(p.inp) } : p)));
@@ -660,7 +704,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
           </div>
         </header>
 
-        {view === "real" && <RealView i={i} rm={rm} setRm={setRm} setActual={setActual} setActualIng={setActualIng} />}
+        {view === "real" && <RealView i={i} rm={rm} setRm={setRm} setActual={setActual} setActualIng={setActualIng} setActualProv={setActualProv} />}
         {view === "proj" && (
         <div className="gmain">
           {/* ── INPUTS ── */}
