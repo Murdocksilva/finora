@@ -372,14 +372,14 @@ function ProvChart({ agg, sel, color }) {
   );
 }
 
-function SchedProv({ item, arr, saldo, provAdd, provDel, provEdit }) {
+function SchedProv({ item, arr, saldo, allNames, provAdd, provDel, provEdit }) {
   const k = provKeys[arr];
   const [open, setOpen] = useState(false);
   const [sel, setSel] = useState(0);
   const list = item[k.list] || [];
   const tot = item[k.tot] || [];
   const prog = tot.reduce((a, x) => a + (+x || 0), 0);
-  const provNames = Array.from(new Set(list.flat().map((p) => p && p.prov).filter(Boolean)));
+  const provNames = Array.from(new Set([...(allNames || []), ...list.flat().map((p) => p && p.prov)].filter(Boolean)));
   const monthProvs = list[sel] || [];
   const monthTot = monthProvs.reduce((a, p) => a + (+p.monto || 0), 0);
   return (
@@ -398,7 +398,7 @@ function SchedProv({ item, arr, saldo, provAdd, provDel, provEdit }) {
           <datalist id={`prov-${arr}-${item.id}`}>{provNames.map((n) => <option key={n} value={n} />)}</datalist>
           {monthProvs.map((p) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
-              <input list={`prov-${arr}-${item.id}`} value={p.prov} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "3px 6px", border: `1px solid ${P.line}`, borderRadius: 4, background: "#fff" }} />
+              <input list={`prov-${arr}-${item.id}`} value={p.prov} placeholder={k.lbl} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "3px 6px", border: `1px solid ${P.line}`, borderRadius: 4, background: "#fff" }} />
               <span className="mono" style={{ fontSize: 12, color: P.muted }}>$<input className="si" style={{ width: 72 }} type="number" value={p.monto} onChange={(e) => provEdit(arr, item.id, sel, p.id, { monto: +e.target.value || 0 })} /></span>
               <button className="x" onClick={() => provDel(arr, item.id, sel, p.id)}>×</button>
             </div>
@@ -457,33 +457,60 @@ function RealView({ i, rm, setRm, setActual, setActualIng }) {
   const pagadoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.d && mm.d[id]) || 0), 0);
   const cobradoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.c && mm.c[id]) || 0), 0);
   const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= rm; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
+  const rubros = [
+    { n: "Ingreso", proj: projIng, real: realIng, pos: true },
+    { n: "Gastos", proj: projG, real: realG, pos: false },
+    { n: "Deuda", proj: projD, real: realD, pos: false },
+    { n: "Cobros", proj: projC, real: realC, pos: true },
+  ];
   return (
     <div className="gcol" style={{ maxWidth: 820, margin: "0 auto" }}>
       <Panel eb="Registro real · lo que pasó de verdad" title="Cargá el mes en curso" right={<MonthSel v={rm} onChange={setRm} />}>
         <p style={{ fontSize: 13, color: P.muted, marginTop: 0 }}>Estás cargando <b style={{ color: P.ink }}>{mlabel(rm)}</b>. Los campos vienen con lo proyectado; cambiá solo lo que fue distinto.</p>
         <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ingreso real</span><span className="mono" style={{ fontSize: 13, color: P.muted }}>proy {money(projIng)} → $<input className="num mono" type="number" value={realIng} onChange={(e) => setActualIng(rm, e.target.value === "" ? 0 : +e.target.value)} /></span></div>
       </Panel>
-      <Panel eb="Gastos" title="Real vs proyectado por partida">
-        <RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} />
-        <div style={{ marginTop: 12 }}><CmpChart rows={grows.map((r) => ({ n: r.n, a: r.proj, b: r.real }))} la="Proyectado" lb="Real" ca="#9AA6B2" cb={P.teal} /></div>
+
+      <Panel eb="Resumen del mes" title={`Proyectado vs real · ${mlabel(rm)}`}>
+        <table className="tbl">
+          <thead><tr><th>Rubro</th><th>Proy.</th><th>Real</th><th>Δ</th><th style={{ width: 84 }}>Real/Proy</th></tr></thead>
+          <tbody>
+            {rubros.map((ru, k) => {
+              const d = ru.real - ru.proj, good = ru.pos ? d >= 0 : d <= 0;
+              const col = Math.abs(d) < 1 ? P.muted : (good ? P.healthy : P.critical), mx = Math.max(ru.proj, ru.real, 1);
+              return (
+                <tr key={k} style={{ borderBottom: `1px solid ${P.faint}` }}>
+                  <td>{ru.n}</td>
+                  <td className="mono" style={{ color: P.muted }}>{money(ru.proj)}</td>
+                  <td className="mono">{money(ru.real)}</td>
+                  <td className="mono" style={{ color: col }}>{d > 0 ? "+" : ""}{money(d)}</td>
+                  <td><div style={{ display: "grid", gap: 2 }}><div style={{ height: 5, width: `${(ru.proj / mx) * 100}%`, background: P.line, borderRadius: 2 }} /><div style={{ height: 5, width: `${(ru.real / mx) * 100}%`, background: col === P.muted ? P.teal : col, borderRadius: 2 }} /></div></td>
+                </tr>
+              );
+            })}
+            <tr style={{ borderTop: `1px solid ${P.line}` }}>
+              <td style={{ fontWeight: 600 }}>Resultado</td>
+              <td className="mono" style={{ color: P.muted }}>{money(projRes)}</td>
+              <td className="mono" style={{ fontWeight: 700, color: realRes < 0 ? P.critical : P.healthy }}>{money(realRes)}</td>
+              <td className="mono" style={{ color: (realRes - projRes) < 0 ? P.critical : P.healthy }}>{(realRes - projRes) > 0 ? "+" : ""}{money(realRes - projRes)}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>Barra clara = proyectado · barra de color = real. Verde: vas mejor que lo previsto; rojo: peor.</div>
       </Panel>
-      <Panel eb="Deuda" title="Real vs proyectado por deuda">
-        <RealTabla rows={drows} kind="d" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.deudas.find((x) => x.id === id) || {}).saldo || 0) - pagadoReal(id))} />
-        <div style={{ marginTop: 12 }}><CmpChart rows={drows.map((r) => ({ n: r.n, a: r.proj, b: r.real }))} la="Proyectado" lb="Real" ca="#9AA6B2" cb={P.critical} /></div>
-      </Panel>
-      <Panel eb="Cuentas por cobrar" title="Real vs proyectado por cobro">
-        <RealTabla rows={crows} kind="c" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.porCobrar.find((x) => x.id === id) || {}).monto || 0) - cobradoReal(id))} />
-        <div style={{ marginTop: 12 }}><CmpChart rows={crows.map((r) => ({ n: r.n, a: r.proj, b: r.real }))} la="Proyectado" lb="Real" ca="#9AA6B2" cb={P.healthy} /></div>
-      </Panel>
-      <Panel eb="Metas" title="Meta total vs acumulado a la fecha">
-        <CmpChart rows={metaRows} la="Meta total" lb="Acumulado" ca="#C9C2B4" cb={P.teal} />
-      </Panel>
-      <Panel eb="Resultado del mes" title="Real vs proyectado">
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <div><div style={{ fontSize: 11, color: P.muted }}>Proyectado</div><div className="mono" style={{ fontSize: 20, color: projRes < 0 ? P.critical : P.ink }}>{money(projRes)}</div></div>
-          <div><div style={{ fontSize: 11, color: P.muted }}>Real</div><div className="mono" style={{ fontSize: 20, fontWeight: 700, color: realRes < 0 ? P.critical : P.healthy }}>{money(realRes)}</div></div>
-          <div><div style={{ fontSize: 11, color: P.muted }}>Diferencia</div><div className="mono" style={{ fontSize: 20, color: (realRes - projRes) < 0 ? P.critical : P.healthy }}>{money(realRes - projRes)}</div></div>
-        </div>
+
+      <Panel eb="Gastos" title="Detalle real por partida"><RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} /></Panel>
+      <Panel eb="Deuda" title="Detalle real por deuda"><RealTabla rows={drows} kind="d" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.deudas.find((x) => x.id === id) || {}).saldo || 0) - pagadoReal(id))} /></Panel>
+      <Panel eb="Cuentas por cobrar" title="Detalle real por cobro"><RealTabla rows={crows} kind="c" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.porCobrar.find((x) => x.id === id) || {}).monto || 0) - cobradoReal(id))} /></Panel>
+      <Panel eb="Metas" title="Avance a la fecha">
+        {metaRows.length === 0 ? <div style={{ fontSize: 13, color: P.muted }}>Sin metas.</div> : (
+          <table className="tbl">
+            <thead><tr><th>Meta</th><th>Total</th><th>Acumulado</th><th>Avance</th></tr></thead>
+            <tbody>{metaRows.map((mr, k) => (
+              <tr key={k} style={{ borderBottom: `1px solid ${P.faint}` }}><td>{mr.n}</td><td className="mono" style={{ color: P.muted }}>{money(mr.a)}</td><td className="mono" style={{ color: P.teal }}>{money(mr.b)}</td><td className="mono">{pct(mr.a > 0 ? mr.b / mr.a : 0)}</td></tr>
+            ))}</tbody>
+          </table>
+        )}
       </Panel>
     </div>
   );
@@ -513,7 +540,7 @@ function Planner({ auth, initialData, onLogout }) {
   const delItem = (arr, id) => updInp((x) => ({ ...x, [arr]: x[arr].filter((it) => it.id !== id) }));
   const cycle = (idx) => updInp((x) => { const h = [...x.horizonte]; h[idx] = { sc: SCEN[(SCEN.indexOf(h[idx].sc) + 1) % 4] }; return { ...x, horizonte: h }; });
   const setSched = (arr, id, key, m, val) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => (it.id === id ? { ...it, [key]: it[key].map((y, k) => (k === m ? val : y)) } : it)) }));
-  const provAdd = (arr, id, m) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); const cur = list[m] || []; list[m] = [...cur, { id: uid(), prov: k.lbl + " " + (cur.length + 1), monto: 0 }]; return recalcTot({ ...it, [k.list]: list }, k); }) }));
+  const provAdd = (arr, id, m) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); const cur = list[m] || []; list[m] = [...cur, { id: uid(), prov: "", monto: 0 }]; return recalcTot({ ...it, [k.list]: list }, k); }) }));
   const provDel = (arr, id, m, pid) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); list[m] = (list[m] || []).filter((p) => p.id !== pid); return recalcTot({ ...it, [k.list]: list }, k); }) }));
   const provEdit = (arr, id, m, pid, patch) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); list[m] = (list[m] || []).map((p) => (p.id === pid ? { ...p, ...patch } : p)); return recalcTot({ ...it, [k.list]: list }, k); }) }));
   const addCat = () => { const c = newCat.trim().toUpperCase(); if (c && !i.categorias.includes(c)) updInp((x) => ({ ...x, categorias: [...x.categorias, c] })); setNewCat(""); };
@@ -668,7 +695,7 @@ function Planner({ auth, initialData, onLogout }) {
                     <CatSel v={d.cat} cats={i.categorias} onChange={(c) => editItem("deudas", d.id, { cat: c })} />
                     <span style={{ fontSize: 12, color: P.muted }}>saldo <input className="num mono" type="number" value={d.saldo} onChange={(e) => editItem("deudas", d.id, { saldo: +e.target.value || 0 })} /></span>
                   </div>
-                  <SchedProv item={d} arr="deudas" saldo={+d.saldo || 0} provAdd={provAdd} provDel={provDel} provEdit={provEdit} />
+                  <SchedProv item={d} arr="deudas" saldo={+d.saldo || 0} allNames={aggDeuda.names} provAdd={provAdd} provDel={provDel} provEdit={provEdit} />
                 </div>
               ))}
               {i.deudas.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin deudas.</div>}
@@ -686,7 +713,7 @@ function Planner({ auth, initialData, onLogout }) {
                   <div className="row" style={{ padding: "2px 0" }}>
                     <span style={{ fontSize: 12, color: P.muted }}>monto <input className="num mono" type="number" value={c.monto} onChange={(e) => editItem("porCobrar", c.id, { monto: +e.target.value || 0 })} /></span>
                   </div>
-                  <SchedProv item={c} arr="porCobrar" saldo={+c.monto || 0} provAdd={provAdd} provDel={provDel} provEdit={provEdit} />
+                  <SchedProv item={c} arr="porCobrar" saldo={+c.monto || 0} allNames={aggCobro.names} provAdd={provAdd} provDel={provDel} provEdit={provEdit} />
                 </div>
               ))}
               {i.porCobrar.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin cuentas por cobrar.</div>}
