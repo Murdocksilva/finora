@@ -412,6 +412,30 @@ function SchedProv({ item, arr, saldo, allNames, provAdd, provDel, provEdit }) {
     </div>
   );
 }
+function GBars({ rows, color, lblA, lblB }) {
+  const clean = rows.filter((r) => (r.a || 0) > 0 || (r.b || 0) > 0);
+  if (!clean.length) return <div style={{ fontSize: 12, color: P.muted }}>Sin datos para mostrar todavía.</div>;
+  const max = Math.max(1, ...clean.flatMap((r) => [r.a || 0, r.b || 0]));
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 16, fontSize: 11, color: P.muted, marginBottom: 8 }}>
+        <span><span style={{ display: "inline-block", width: 9, height: 9, background: P.line, borderRadius: 2, marginRight: 4 }} />{lblA}</span>
+        <span><span style={{ display: "inline-block", width: 9, height: 9, background: color, borderRadius: 2, marginRight: 4 }} />{lblB}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 16, height: 150, overflowX: "auto", paddingBottom: 46 }}>
+        {clean.map((r, k) => (
+          <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto", position: "relative" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 104 }}>
+              <div title={`${lblA}: ${money(r.a || 0)}`} style={{ width: 15, height: `${Math.max(2, ((r.a || 0) / max) * 100)}%`, background: P.line, borderRadius: "2px 2px 0 0" }} />
+              <div title={`${lblB}: ${money(r.b || 0)}`} style={{ width: 15, height: `${Math.max(2, ((r.b || 0) / max) * 100)}%`, background: color, borderRadius: "2px 2px 0 0" }} />
+            </div>
+            <span style={{ position: "absolute", top: 108, left: "50%", transformOrigin: "left top", transform: "rotate(35deg)", fontSize: 9, color: P.muted, whiteSpace: "nowrap" }}>{r.n} · {pct((r.a || 0) > 0 ? (r.b || 0) / (r.a || 1) : 0)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 function RealDelta({ real, proj }) { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; }
 function RealTabla({ rows, kind, rm, setActual, pend }) {
   return (
@@ -458,6 +482,8 @@ function RealView({ i, rm, setRm, setActual, setActualIng }) {
   const projRes = projIng + projC - projG - projD, realRes = realIng + realC - realG - realD;
   const pagadoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.d && mm.d[id]) || 0), 0);
   const cobradoReal = (id) => Object.values(i.actuals || {}).reduce((a, mm) => a + ((mm.c && mm.c[id]) || 0), 0);
+  const pagadoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) { const mm = i.actuals && i.actuals[m]; if (mm && mm.d) s += (mm.d[id] || 0); } return s; };
+  const cobradoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) { const mm = i.actuals && i.actuals[m]; if (mm && mm.c) s += (mm.c[id] || 0); } return s; };
   const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= rm; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
   const rubros = [
     { n: "Ingreso", proj: projIng, real: realIng, pos: true },
@@ -502,16 +528,19 @@ function RealView({ i, rm, setRm, setActual, setActualIng }) {
       </Panel>
 
       <Panel eb="Gastos" title="Detalle real por partida"><RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} /></Panel>
-      <Panel eb="Deuda" title="Detalle real por deuda"><RealTabla rows={drows} kind="d" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.deudas.find((x) => x.id === id) || {}).saldo || 0) - pagadoReal(id))} /></Panel>
-      <Panel eb="Cuentas por cobrar" title="Detalle real por cobro"><RealTabla rows={crows} kind="c" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.porCobrar.find((x) => x.id === id) || {}).monto || 0) - cobradoReal(id))} /></Panel>
+      <Panel eb="Deuda" title="Detalle real por deuda"><RealTabla rows={drows} kind="d" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.deudas.find((x) => x.id === id) || {}).saldo || 0) - pagadoReal(id))} /><div style={{ marginTop: 16 }}><GBars rows={i.deudas.map((d) => ({ n: d.n, a: +d.saldo || 0, b: pagadoHasta(d.id) }))} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(rm)}`} /></div></Panel>
+      <Panel eb="Cuentas por cobrar" title="Detalle real por cobro"><RealTabla rows={crows} kind="c" rm={rm} setActual={setActual} pend={(id) => Math.max(0, (+(i.porCobrar.find((x) => x.id === id) || {}).monto || 0) - cobradoReal(id))} /><div style={{ marginTop: 16 }}><GBars rows={i.porCobrar.map((c) => ({ n: c.n, a: +c.monto || 0, b: cobradoHasta(c.id) }))} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(rm)}`} /></div></Panel>
       <Panel eb="Metas" title="Avance a la fecha">
         {metaRows.length === 0 ? <div style={{ fontSize: 13, color: P.muted }}>Sin metas.</div> : (
-          <table className="tbl">
-            <thead><tr><th>Meta</th><th>Total</th><th>Acumulado</th><th>Avance</th></tr></thead>
-            <tbody>{metaRows.map((mr, k) => (
-              <tr key={k} style={{ borderBottom: `1px solid ${P.faint}` }}><td>{mr.n}</td><td className="mono" style={{ color: P.muted }}>{money(mr.a)}</td><td className="mono" style={{ color: P.teal }}>{money(mr.b)}</td><td className="mono">{pct(mr.a > 0 ? mr.b / mr.a : 0)}</td></tr>
-            ))}</tbody>
-          </table>
+          <>
+            <table className="tbl">
+              <thead><tr><th>Meta</th><th>Total</th><th>Acumulado</th><th>Avance</th></tr></thead>
+              <tbody>{metaRows.map((mr, k) => (
+                <tr key={k} style={{ borderBottom: `1px solid ${P.faint}` }}><td>{mr.n}</td><td className="mono" style={{ color: P.muted }}>{money(mr.a)}</td><td className="mono" style={{ color: P.teal }}>{money(mr.b)}</td><td className="mono">{pct(mr.a > 0 ? mr.b / mr.a : 0)}</td></tr>
+              ))}</tbody>
+            </table>
+            <div style={{ marginTop: 16 }}><GBars rows={metaRows} color={P.teal} lblA="Meta total" lblB={`Acumulado a ${mlabel(rm)}`} /></div>
+          </>
         )}
       </Panel>
     </div>
