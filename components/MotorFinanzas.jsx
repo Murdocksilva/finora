@@ -12,14 +12,15 @@ const START = 8; // Sep
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const mlabel = (m) => MESES[(START + m) % 12] + " " + (26 + Math.floor((START + m) / 12));
 const P = {
-  ink: "#16211C", paper: "#F4F5F1", panel: "#FFFFFF", teal: "#0B5D4E",
-  healthy: "#2F8F6B", caution: "#B8791E", critical: "#A8412F",
-  muted: "#6B7269", line: "#E3E5DE", faint: "#EFF1EC",
+  ink: "var(--ink)", paper: "var(--paper)", panel: "var(--panel)", teal: "var(--teal)",
+  healthy: "var(--healthy)", caution: "var(--caution)", critical: "var(--critical)",
+  muted: "var(--muted)", line: "var(--line)", faint: "var(--faint)",
+  blue: "var(--blue)", gold: "var(--gold)", softgreen: "var(--softgreen)",
 };
-const SCC = { e1: P.critical, e2: P.caution, e3: "#3E6FA8", e4: P.healthy };
+const SCC = { e1: P.critical, e2: P.caution, e3: P.blue, e4: P.healthy };
 const SCL = { e1: "Esc 1", e2: "Esc 2", e3: "Esc 3", e4: "Esc 4" };
 const SCEN = ["e1", "e2", "e3", "e4"];
-const CATCOLORS = ["#0B5D4E", "#B8791E", "#A8412F", "#4E8A6B", "#4A6FA5", "#9C5D8A", "#2F8F6B", "#8A6D3B", "#C98A3A", "#6B7269", "#7A4E9C", "#3A7CA5"];
+const CATCOLORS = ["#1F6F78", "#3E6FA8", "#4E8A6B", "#6E8CA0", "#88A07A", "#5A6B8C", "#9A8A6B", "#7E9AA8", "#6B7E9C", "#8A7E9C", "#5E8A7A", "#A0846B"];
 const money = (n) => (n < 0 ? "−" : "") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
 const pct = (n) => Math.round(n * 100) + "%";
 let _id = 0; const uid = () => ++_id;
@@ -54,33 +55,34 @@ function normProv(prov, tot, lbl) {
 const pad = (a) => { const b = a.slice(0, H); while (b.length < H) b.push(0); return b; };
 
 const CSS = `
-.app{min-height:100vh;width:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.app{--paper:#F4F5F1;--panel:#FFFFFF;--ink:#16211C;--muted:#6B7269;--line:#E3E5DE;--faint:#EFF1EC;--teal:#0B5D4E;--healthy:#2F8F6B;--caution:#B8791E;--critical:#A8412F;--blue:#3E6FA8;--gold:#C9A24B;--softgreen:#8FC9B4;--dash:#B9C0B6;min-height:100vh;width:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease}
+.app.dark{--paper:#12171A;--panel:#1B2227;--ink:#E7ECEA;--muted:#95A0A5;--line:#2E383D;--faint:#232B30;--teal:#3B9E88;--healthy:#47A87C;--caution:#C88F3C;--critical:#CE6450;--blue:#5B90CE;--gold:#C6A257;--softgreen:#5AA588;--dash:#3E4A50}
 .wrap{max-width:1180px;margin:0 auto;padding:24px 20px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .gmain{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:20px;align-items:start}
 .gcol{display:grid;gap:20px;min-width:0}
 .cards4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.panel{background:#fff;border:1px solid ${P.line};border-radius:12px;padding:18px;min-width:0}
+.panel{background:var(--panel);border:1px solid ${P.line};border-radius:12px;padding:18px;min-width:0}
 .eb{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:${P.teal};margin-bottom:6px}
 .h2{font-size:15px;font-weight:600;color:${P.ink};margin:0 0 12px}
 .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;min-width:0}
 input,select{outline:none;font-size:13px;border-radius:6px;border:1px solid ${P.line};background:${P.faint};color:${P.ink}}
 .num{width:80px;text-align:right;padding:5px 8px;font-family:ui-monospace,Menlo,monospace}
-.nam{flex:1;min-width:0;padding:4px 6px;background:transparent;border:none;border-bottom:1px dashed #B9C0B6;border-radius:0;font-size:13px}
+.nam{flex:1;min-width:0;padding:4px 6px;background:transparent;border:none;border-bottom:1px dashed var(--dash);border-radius:0;font-size:13px}
 .nam:focus{background:${P.faint};border-bottom:1px solid ${P.teal}}
 .sel{font-size:11px;padding:3px 4px;max-width:120px}
 input:focus,select:focus{box-shadow:0 0 0 2px rgba(11,93,78,.22)}
-.btn{cursor:pointer;font-size:12px;border:1px dashed ${P.line};background:#fff;color:${P.teal};border-radius:6px;padding:5px 8px}
+.btn{cursor:pointer;font-size:12px;border:1px dashed ${P.line};background:var(--panel);color:${P.teal};border-radius:6px;padding:5px 8px}
 .x{cursor:pointer;border:none;background:transparent;color:${P.muted};font-size:15px;line-height:1;padding:0 2px}
 .scroll{max-height:240px;overflow:auto;padding-right:4px;margin-right:-4px}
 .pill{cursor:pointer;font-size:13px;padding:5px 12px;border-radius:20px}
 .grid24{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:6px;padding:8px;background:${P.faint};border-radius:6px}
-.si{width:100%;text-align:right;font-size:11px;padding:3px 3px;border:1px solid ${P.line};border-radius:4px;background:#fff;font-family:ui-monospace,Menlo,monospace}
+.si{width:100%;text-align:right;font-size:11px;padding:3px 3px;border:1px solid ${P.line};border-radius:4px;background:var(--panel);font-family:ui-monospace,Menlo,monospace}
 .tbl{width:100%;border-collapse:collapse;font-size:11.5px}
 .tbl th,.tbl td{padding:4px 6px;text-align:right;white-space:nowrap}
 .tbl th:first-child,.tbl td:first-child{text-align:left}
-.tbl thead th{color:${P.muted};font-weight:600;border-bottom:1px solid ${P.line};position:sticky;top:0;background:#fff}
+.tbl thead th{color:${P.muted};font-weight:600;border-bottom:1px solid ${P.line};position:sticky;top:0;background:var(--panel)}
 @media(max-width:900px){.gmain{grid-template-columns:1fr}.cards4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
 `;
 
@@ -279,7 +281,7 @@ const sev = (s) => (s === "critical" ? P.critical : s === "caution" ? P.caution 
 const Amb = ({ v, onChange }) => (
   <span style={{ display: "inline-flex", border: `1px solid ${P.line}`, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
     {["compania", "personal"].map((a) => (
-      <button key={a} onClick={() => onChange(a)} style={{ cursor: "pointer", border: "none", fontSize: 11, padding: "2px 6px", background: v === a ? P.teal : "#fff", color: v === a ? "#fff" : P.muted }}>{a === "compania" ? "Cía" : "Pers"}</button>
+      <button key={a} onClick={() => onChange(a)} style={{ cursor: "pointer", border: "none", fontSize: 11, padding: "2px 6px", background: v === a ? P.teal : P.panel, color: v === a ? "#fff" : P.muted }}>{a === "compania" ? "Cía" : "Pers"}</button>
     ))}
   </span>
 );
@@ -389,7 +391,7 @@ function SchedProv({ item, arr, saldo, allNames, provAdd, provDel, provEdit }) {
         <div style={{ marginTop: 6, padding: 8, background: P.faint, borderRadius: 6 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 3, marginBottom: 8 }}>
             {tot.map((v, m) => (
-              <button key={m} onClick={() => setSel(m)} style={{ cursor: "pointer", border: `1px solid ${m === sel ? P.teal : P.line}`, background: m === sel ? P.teal : "#fff", color: m === sel ? "#fff" : (v > 0 ? P.ink : P.muted), borderRadius: 4, padding: "3px 1px", fontSize: 8, lineHeight: 1.3 }}>
+              <button key={m} onClick={() => setSel(m)} style={{ cursor: "pointer", border: `1px solid ${m === sel ? P.teal : P.line}`, background: m === sel ? P.teal : P.panel, color: m === sel ? "#fff" : (v > 0 ? P.ink : P.muted), borderRadius: 4, padding: "3px 1px", fontSize: 8, lineHeight: 1.3 }}>
                 {mlabel(m)}<br /><span className="mono">{v ? money(v) : "·"}</span>
               </button>
             ))}
@@ -398,7 +400,7 @@ function SchedProv({ item, arr, saldo, allNames, provAdd, provDel, provEdit }) {
           <datalist id={`prov-${arr}-${item.id}`}>{provNames.map((n) => <option key={n} value={n} />)}</datalist>
           {monthProvs.map((p) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
-              <input list={`prov-${arr}-${item.id}`} value={p.prov} placeholder={k.lbl} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "3px 6px", border: `1px solid ${P.line}`, borderRadius: 4, background: "#fff" }} />
+              <input list={`prov-${arr}-${item.id}`} value={p.prov} placeholder={k.lbl} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "3px 6px", border: `1px solid ${P.line}`, borderRadius: 4, background: P.panel }} />
               <span className="mono" style={{ fontSize: 12, color: P.muted }}>$<input className="si" style={{ width: 72 }} type="number" value={p.monto} onChange={(e) => provEdit(arr, item.id, sel, p.id, { monto: +e.target.value || 0 })} /></span>
               <button className="x" onClick={() => provDel(arr, item.id, sel, p.id)}>×</button>
             </div>
@@ -516,7 +518,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng }) {
   );
 }
 
-function Planner({ auth, initialData, onLogout }) {
+function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const [profiles, setProfiles] = useState(() => { const n = parseProfiles(initialData); return (n && n.length) ? n : [{ id: uid(), nombre: auth.username, inp: blankInp() }]; });
   const [saving, setSaving] = useState("");
   const [activeId, setActiveId] = useState(() => profiles[0].id);
@@ -595,14 +597,14 @@ function Planner({ auth, initialData, onLogout }) {
   const deuPagTot = r.flujo[deuMes]?.deudaPagAcum || 0;
 
   return (
-    <div className="app" style={{ background: P.paper, color: P.ink }}>
+    <div className={"app" + (theme === "dark" ? " dark" : "")} style={{ background: P.paper, color: P.ink }}>
       <style>{CSS}</style>
       <div className="wrap">
         {/* USER BAR */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
           <span className="eb" style={{ margin: 0 }}>Usuario</span>
           {profiles.map((p) => (
-            <button key={p.id} className="pill" onClick={() => setActiveId(p.id)} style={{ border: `1px solid ${p.id === activeId ? P.teal : P.line}`, background: p.id === activeId ? P.teal : "#fff", color: p.id === activeId ? "#fff" : P.muted }}>{p.nombre}</button>
+            <button key={p.id} className="pill" onClick={() => setActiveId(p.id)} style={{ border: `1px solid ${p.id === activeId ? P.teal : P.line}`, background: p.id === activeId ? P.teal : P.panel, color: p.id === activeId ? "#fff" : P.muted }}>{p.nombre}</button>
           ))}
           <button className="btn" style={{ borderRadius: 20 }} onClick={newProfile}>+ Nuevo usuario</button>
           {profiles.length > 1 && <button className="btn" style={{ borderRadius: 20, color: P.critical, borderColor: P.critical }} onClick={delProfile}>Borrar</button>}
@@ -614,6 +616,7 @@ function Planner({ auth, initialData, onLogout }) {
           {saving === "guardado" && <span className="mono" style={{ fontSize: 11, color: P.healthy }}>guardado en la nube ✓</span>}
           {saving === "error" && <span className="mono" style={{ fontSize: 11, color: P.critical }}>error al guardar</span>}
           <button className="btn" style={{ borderRadius: 20 }} onClick={onLogout}>Salir</button>
+          <button className="btn" title="Cambiar tema" style={{ borderRadius: 20, marginLeft: "auto" }} onClick={toggleTheme}>{theme === "dark" ? "☀︎ Claro" : "☾ Oscuro"}</button>
         </div>
 
         {/* NOMBRE GRANDE */}
@@ -741,7 +744,7 @@ function Planner({ auth, initialData, onLogout }) {
                     </div>
                     <div style={{ display: "flex", gap: 6, margin: "5px 0" }}>
                       {[["auto", "Cuota automática"], ["manual", "Manual"]].map(([mv, ml]) => (
-                        <button key={mv} onClick={() => editItem("metas", g.id, { modo: mv })} style={{ cursor: "pointer", fontSize: 11, padding: "3px 8px", borderRadius: 6, border: `1px solid ${modo === mv ? P.teal : P.line}`, background: modo === mv ? P.teal : "#fff", color: modo === mv ? "#fff" : P.muted }}>{ml}</button>
+                        <button key={mv} onClick={() => editItem("metas", g.id, { modo: mv })} style={{ cursor: "pointer", fontSize: 11, padding: "3px 8px", borderRadius: 6, border: `1px solid ${modo === mv ? P.teal : P.line}`, background: modo === mv ? P.teal : P.panel, color: modo === mv ? "#fff" : P.muted }}>{ml}</button>
                       ))}
                     </div>
                     {modo === "manual" && fin >= ini && (
@@ -859,8 +862,8 @@ function Planner({ auth, initialData, onLogout }) {
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 90 }}>
                   {ahoData.map((f, k) => (
                     <div key={k} title={`${mlabel(f.m)}: total ${money(f.ahorroAcum + f.sobranteAcum + f.reservaAcum)}`} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%" }}>
-                      <div style={{ background: "#C9A24B", height: `${Math.max(0, (f.reservaAcum / ahoMax) * 100)}%` }} title="reserva" />
-                      <div style={{ background: "#8FC9B4", height: `${Math.max(0, (f.sobranteAcum / ahoMax) * 100)}%` }} title="sobrante" />
+                      <div style={{ background: P.gold, height: `${Math.max(0, (f.reservaAcum / ahoMax) * 100)}%` }} title="reserva" />
+                      <div style={{ background: P.softgreen, height: `${Math.max(0, (f.sobranteAcum / ahoMax) * 100)}%` }} title="sobrante" />
                       <div style={{ background: P.teal, height: `${Math.max(0, (f.ahorroAcum / ahoMax) * 100)}%` }} title="ahorro" />
                     </div>
                   ))}
@@ -868,8 +871,8 @@ function Planner({ auth, initialData, onLogout }) {
                 <div style={{ marginTop: 10, fontSize: 12, display: "grid", gap: 3 }}>
                   <div>Total a {mlabel(ahoMes)}: <b className="mono" style={{ color: P.ink }}>{money((r.flujo[ahoMes]?.ahorroAcum || 0) + (r.flujo[ahoMes]?.sobranteAcum || 0) + (r.flujo[ahoMes]?.reservaAcum || 0))}</b></div>
                   <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.teal, borderRadius: 2, marginRight: 5 }} />Ahorro (definido) <b className="mono">{money(r.flujo[ahoMes]?.ahorroAcum || 0)}</b></div>
-                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: "#8FC9B4", borderRadius: 2, marginRight: 5 }} />Sobrante (libre / inversión) <b className="mono">{money(r.flujo[ahoMes]?.sobranteAcum || 0)}</b></div>
-                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: "#C9A24B", borderRadius: 2, marginRight: 5 }} />Reserva fiscal (impuestos) <b className="mono">{money(r.flujo[ahoMes]?.reservaAcum || 0)}</b></div>
+                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.softgreen, borderRadius: 2, marginRight: 5 }} />Sobrante (libre / inversión) <b className="mono">{money(r.flujo[ahoMes]?.sobranteAcum || 0)}</b></div>
+                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.gold, borderRadius: 2, marginRight: 5 }} />Reserva fiscal (impuestos) <b className="mono">{money(r.flujo[ahoMes]?.reservaAcum || 0)}</b></div>
                 </div>
               </Panel>
             </div>
@@ -950,7 +953,7 @@ function Planner({ auth, initialData, onLogout }) {
                   const dot = g.pass ? P.healthy : here ? P.critical : P.line;
                   return (
                     <div key={g.id} style={{ position: "relative", padding: "7px 0", display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ position: "absolute", left: -24, width: 20, display: "flex", justifyContent: "center" }}><span style={{ width: g.pass ? 10 : 12, height: g.pass ? 10 : 12, borderRadius: 8, background: g.pass ? dot : "#fff", border: `2px solid ${dot}` }} /></span>
+                      <span style={{ position: "absolute", left: -24, width: 20, display: "flex", justifyContent: "center" }}><span style={{ width: g.pass ? 10 : 12, height: g.pass ? 10 : 12, borderRadius: 8, background: g.pass ? dot : P.panel, border: `2px solid ${dot}` }} /></span>
                       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                         <span style={{ fontSize: 13, color: g.pass ? P.ink : here ? P.critical : P.muted, fontWeight: here ? 600 : 400 }}><span className="mono" style={{ fontSize: 11, color: P.muted, marginRight: 8 }}>{g.id}</span>{g.l}</span>
                         <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}><span className="mono" style={{ fontSize: 12, color: P.muted }}>{g.v}</span>{here && <span className="mono" style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: P.critical, color: "#fff" }}>ACÁ ESTÁS</span>}</span>
@@ -986,7 +989,7 @@ function Planner({ auth, initialData, onLogout }) {
   );
 }
 
-function Login({ onLogin }) {
+function Login({ onLogin, theme, toggleTheme }) {
   const [u, setU] = useState(""), [p, setP] = useState(""), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
   const submit = async () => {
     if (!u || !p) { setErr("Completá usuario y clave."); return; }
@@ -1000,9 +1003,10 @@ function Login({ onLogin }) {
     setBusy(false);
   };
   return (
-    <div className="app" style={{ background: P.paper, color: P.ink, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div className={"app" + (theme === "dark" ? " dark" : "")} style={{ background: P.paper, color: P.ink, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <style>{CSS}</style>
-      <div className="panel" style={{ width: "100%", maxWidth: 360 }}>
+      <div className="panel" style={{ width: "100%", maxWidth: 360, position: "relative" }}>
+        <button onClick={toggleTheme} title="Cambiar tema" style={{ position: "absolute", top: 14, right: 14, cursor: "pointer", border: `1px solid ${P.line}`, background: "transparent", color: P.muted, borderRadius: 8, padding: "4px 8px", fontSize: 13 }}>{theme === "dark" ? "☀︎" : "☾"}</button>
         <div className="eb mono">Planificador financiero</div>
         <h1 style={{ fontSize: 26, fontWeight: 800, margin: "4px 0 16px" }}>Ingresá</h1>
         <div style={{ display: "grid", gap: 10 }}>
@@ -1018,6 +1022,9 @@ function Login({ onLogin }) {
 
 export default function App() {
   const [session, setSession] = useState(null);
-  if (!session) return <Login onLogin={(a, d) => setSession({ auth: a, data: d })} />;
-  return <Planner auth={session.auth} initialData={session.data} onLogout={() => setSession(null)} />;
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem("finora_theme") || "light"; } catch (e) { return "light"; } });
+  useEffect(() => { try { localStorage.setItem("finora_theme", theme); } catch (e) {} }, [theme]);
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  if (!session) return <Login theme={theme} toggleTheme={toggleTheme} onLogin={(a, d) => setSession({ auth: a, data: d })} />;
+  return <Planner auth={session.auth} initialData={session.data} theme={theme} toggleTheme={toggleTheme} onLogout={() => setSession(null)} />;
 }
