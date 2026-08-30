@@ -412,25 +412,36 @@ function SchedProv({ item, arr, saldo, allNames, provAdd, provDel, provEdit }) {
     </div>
   );
 }
-function GBars({ rows, color, lblA, lblB }) {
-  const clean = rows.filter((r) => (r.a || 0) > 0 || (r.b || 0) > 0);
-  if (!clean.length) return <div style={{ fontSize: 12, color: P.muted }}>Sin datos para mostrar todavía.</div>;
-  const max = Math.max(1, ...clean.flatMap((r) => [r.a || 0, r.b || 0]));
+function GBars({ groups, color, lblA, lblB }) {
+  const shown = groups.map((g) => ({ label: g.label, rows: g.rows.filter((r) => (r.a || 0) > 0 || (r.b || 0) > 0) })).filter((g) => g.rows.length);
+  const all = shown.flatMap((g) => g.rows);
+  if (!all.length) return <div style={{ fontSize: 12, color: P.muted }}>Sin datos para mostrar todavía.</div>;
+  const max = Math.max(1, ...all.flatMap((r) => [r.a || 0, r.b || 0]));
   return (
     <div>
       <div style={{ display: "flex", gap: 16, fontSize: 11, color: P.muted, marginBottom: 8 }}>
         <span><span style={{ display: "inline-block", width: 9, height: 9, background: P.line, borderRadius: 2, marginRight: 4 }} />{lblA}</span>
         <span><span style={{ display: "inline-block", width: 9, height: 9, background: color, borderRadius: 2, marginRight: 4 }} />{lblB}</span>
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 16, height: 150, overflowX: "auto", paddingBottom: 46 }}>
-        {clean.map((r, k) => (
-          <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto", position: "relative" }}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 104 }}>
-              <div title={`${lblA}: ${money(r.a || 0)}`} style={{ width: 15, height: `${Math.max(2, ((r.a || 0) / max) * 100)}%`, background: P.line, borderRadius: "2px 2px 0 0" }} />
-              <div title={`${lblB}: ${money(r.b || 0)}`} style={{ width: 15, height: `${Math.max(2, ((r.b || 0) / max) * 100)}%`, background: color, borderRadius: "2px 2px 0 0" }} />
+      <div style={{ display: "flex", alignItems: "flex-end", height: 154, overflowX: "auto", paddingBottom: 46 }}>
+        {shown.map((g, gi) => (
+          <React.Fragment key={gi}>
+            {gi > 0 && <div style={{ alignSelf: "stretch", borderLeft: `2px dashed ${P.line}`, margin: "0 14px 46px" }} />}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {g.label && <div className="mono" style={{ fontSize: 9, color: P.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: ".1em" }}>{g.label}</div>}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 16, height: 104 }}>
+                {g.rows.map((r, k) => (
+                  <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto", position: "relative" }}>
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 104 }}>
+                      <div title={`${lblA}: ${money(r.a || 0)}`} style={{ width: 15, height: `${Math.max(2, ((r.a || 0) / max) * 100)}%`, background: P.line, borderRadius: "2px 2px 0 0" }} />
+                      <div title={`${lblB}: ${money(r.b || 0)}`} style={{ width: 15, height: `${Math.max(2, ((r.b || 0) / max) * 100)}%`, background: color, borderRadius: "2px 2px 0 0" }} />
+                    </div>
+                    <span style={{ position: "absolute", top: 108, left: "50%", transformOrigin: "left top", transform: "rotate(35deg)", fontSize: 9, color: P.muted, whiteSpace: "nowrap" }}>{r.n} · {pct((r.a || 0) > 0 ? (r.b || 0) / (r.a || 1) : 0)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <span style={{ position: "absolute", top: 108, left: "50%", transformOrigin: "left top", transform: "rotate(35deg)", fontSize: 9, color: P.muted, whiteSpace: "nowrap" }}>{r.n} · {pct((r.a || 0) > 0 ? (r.b || 0) / (r.a || 1) : 0)}</span>
-          </div>
+          </React.Fragment>
         ))}
       </div>
     </div>
@@ -511,6 +522,15 @@ function CmpChart({ rows, la, lb, ca, cb }) {
     </div>
   );
 }
+function RealToggle({ v, set }) {
+  return (
+    <span style={{ display: "inline-flex", border: `1px solid ${P.line}`, borderRadius: 6, overflow: "hidden" }}>
+      {[["gen", "General"], ["prov", "Por proveedor"]].map(([val, lbl]) => (
+        <button key={val} onClick={() => set(val)} style={{ cursor: "pointer", border: "none", fontSize: 11, padding: "3px 8px", background: v === val ? P.teal : P.panel, color: v === val ? "#fff" : P.muted }}>{lbl}</button>
+      ))}
+    </span>
+  );
+}
 function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
   const A = (i.actuals && i.actuals[rm]) || {};
   const projIng = i.ingreso[i.horizonte[rm] ? i.horizonte[rm].sc : "e2"] || 0;
@@ -528,6 +548,25 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
   const pagadoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) s += realDebt(m, id); return s; };
   const cobradoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) s += realCob(m, id); return s; };
   const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= rm; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
+  const [deuView, setDeuView] = useState("gen");
+  const [cobView, setCobView] = useState("gen");
+  const provPaidHasta = (key, itemId, prov) => { let s = 0; for (let m = 0; m <= rm; m++) { const mm = i.actuals && i.actuals[m]; const g = mm && mm[key] && mm[key][itemId]; if (g) s += (+g[prov] || 0); } return s; };
+  const genGroups = (items, saldoKey, paidFn) => [
+    { label: "Compañía", rows: items.filter((x) => x.ambito === "compania").map((x) => ({ n: x.n, a: +x[saldoKey] || 0, b: paidFn(x.id) })) },
+    { label: "Personal", rows: items.filter((x) => x.ambito === "personal").map((x) => ({ n: x.n, a: +x[saldoKey] || 0, b: paidFn(x.id) })) },
+  ];
+  const provGroups = (items, listKey, dpKey) => {
+    const build = (ambito) => {
+      const map = {};
+      items.filter((x) => x.ambito === ambito).forEach((x) => {
+        (x[listKey] || []).forEach((ma) => (ma || []).forEach((p) => { const n = (p.prov || "").trim() || "—"; if (!map[n]) map[n] = { n, a: 0, b: 0 }; map[n].a += (+p.monto || 0); }));
+        const names = new Set((x[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean));
+        names.forEach((n) => { if (!map[n]) map[n] = { n, a: 0, b: 0 }; map[n].b += provPaidHasta(dpKey, x.id, n); });
+      });
+      return Object.values(map);
+    };
+    return [{ label: "Compañía", rows: build("compania") }, { label: "Personal", rows: build("personal") }];
+  };
   const rubros = [
     { n: "Ingreso", proj: projIng, real: realIng, pos: true },
     { n: "Gastos", proj: projG, real: realG, pos: false },
@@ -571,8 +610,14 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
       </Panel>
 
       <Panel eb="Gastos" title="Detalle real por partida"><RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} /></Panel>
-      <Panel eb="Deuda" title="Detalle real por proveedor"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /><div style={{ marginTop: 16 }}><GBars rows={i.deudas.map((d) => ({ n: d.n, a: +d.saldo || 0, b: pagadoHasta(d.id) }))} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(rm)}`} /></div></Panel>
-      <Panel eb="Cuentas por cobrar" title="Detalle real por pagador"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /><div style={{ marginTop: 16 }}><GBars rows={i.porCobrar.map((c) => ({ n: c.n, a: +c.monto || 0, b: cobradoHasta(c.id) }))} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(rm)}`} /></div></Panel>
+      <Panel eb="Deuda" title="Detalle real por proveedor"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /></Panel>
+      <Panel eb="Avance de deuda" title={deuView === "gen" ? "Total vs pagado, por deuda" : "Total vs pagado, por proveedor"} right={<RealToggle v={deuView} set={setDeuView} />}>
+        <GBars groups={deuView === "gen" ? genGroups(i.deudas, "saldo", pagadoHasta) : provGroups(i.deudas, "pagosProv", "dp")} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(rm)}`} />
+      </Panel>
+      <Panel eb="Cuentas por cobrar" title="Detalle real por pagador"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /></Panel>
+      <Panel eb="Avance de cobros" title={cobView === "gen" ? "Total vs cobrado, por cuenta" : "Total vs cobrado, por pagador"} right={<RealToggle v={cobView} set={setCobView} />}>
+        <GBars groups={cobView === "gen" ? genGroups(i.porCobrar, "monto", cobradoHasta) : provGroups(i.porCobrar, "cobrosProv", "cp")} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(rm)}`} />
+      </Panel>
       <Panel eb="Metas" title="Avance a la fecha">
         {metaRows.length === 0 ? <div style={{ fontSize: 13, color: P.muted }}>Sin metas.</div> : (
           <>
@@ -582,7 +627,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
                 <tr key={k} style={{ borderBottom: `1px solid ${P.faint}` }}><td>{mr.n}</td><td className="mono" style={{ color: P.muted }}>{money(mr.a)}</td><td className="mono" style={{ color: P.teal }}>{money(mr.b)}</td><td className="mono">{pct(mr.a > 0 ? mr.b / mr.a : 0)}</td></tr>
               ))}</tbody>
             </table>
-            <div style={{ marginTop: 16 }}><GBars rows={metaRows} color={P.teal} lblA="Meta total" lblB={`Acumulado a ${mlabel(rm)}`} /></div>
+            <div style={{ marginTop: 16 }}><GBars groups={[{ label: "", rows: metaRows }]} color={P.teal} lblA="Meta total" lblB={`Acumulado a ${mlabel(rm)}`} /></div>
           </>
         )}
       </Panel>
