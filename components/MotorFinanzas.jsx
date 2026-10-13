@@ -17,7 +17,7 @@ const P = {
   muted: "var(--muted)", line: "var(--line)", faint: "var(--faint)",
   blue: "var(--blue)", gold: "var(--gold)", softgreen: "var(--softgreen)",
 };
-const SCC = { e1: P.critical, e2: P.caution, e3: P.blue, e4: P.healthy };
+const SCC = { e1: "var(--s1)", e2: "var(--s2)", e3: "var(--s3)", e4: "var(--s4)" };
 const SCL = { e1: "Esc 1", e2: "Esc 2", e3: "Esc 3", e4: "Esc 4" };
 const SCEN = ["e1", "e2", "e3", "e4"];
 const CATCOLORS = ["#1F6F78", "#3E6FA8", "#4E8A6B", "#6E8CA0", "#88A07A", "#5A6B8C", "#9A8A6B", "#7E9AA8", "#6B7E9C", "#8A7E9C", "#5E8A7A", "#A0846B"];
@@ -55,35 +55,55 @@ function normProv(prov, tot, lbl) {
 const pad = (a) => { const b = a.slice(0, H); while (b.length < H) b.push(0); return b; };
 
 const CSS = `
-.app{--paper:#F4F5F1;--panel:#FFFFFF;--ink:#16211C;--muted:#6B7269;--line:#E3E5DE;--faint:#EFF1EC;--teal:#0B5D4E;--healthy:#2F8F6B;--caution:#B8791E;--critical:#A8412F;--blue:#3E6FA8;--gold:#C9A24B;--softgreen:#8FC9B4;--dash:#B9C0B6;min-height:100vh;width:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease}
-.app.dark{--paper:#12171A;--panel:#1B2227;--ink:#E7ECEA;--muted:#95A0A5;--line:#2E383D;--faint:#232B30;--teal:#3B9E88;--healthy:#47A87C;--caution:#C88F3C;--critical:#CE6450;--blue:#5B90CE;--gold:#C6A257;--softgreen:#5AA588;--dash:#3E4A50}
-.wrap{max-width:1180px;margin:0 auto;padding:24px 20px}
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.gmain{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:20px;align-items:start}
-.gcol{display:grid;gap:20px;min-width:0}
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+.app{--paper:#F2F4F7;--panel:#FFFFFF;--ink:#0E1A2B;--muted:#556273;--line:#DCE2E9;--faint:#EEF2F6;--teal:#1D4B7A;--healthy:#17704D;--caution:#9A6206;--critical:#A63A2D;--blue:#3E6FA8;--gold:#B08A3E;--softgreen:#7FB8A0;--dash:#B5C0CC;--good-soft:#E1F2EA;--warn-soft:#FBF0DC;--bad-soft:#F8E5E2;--pri-soft:#E3ECF6;--s1:#6F87A1;--s2:#4C7BA8;--s3:#2B5C8C;--s4:#0F3460;min-height:100vh;width:100%;font-family:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease}
+.app.dark{--paper:#0E141B;--panel:#16202B;--ink:#E6ECF2;--muted:#9AA9B8;--line:#2A3646;--faint:#1C2733;--teal:#3F7CC0;--healthy:#4FB487;--caution:#D6A04A;--critical:#E07A66;--blue:#6BA0DE;--gold:#C9A55A;--softgreen:#5AA588;--dash:#3A4757;--good-soft:#16302A;--warn-soft:#33290F;--bad-soft:#3A1F1B;--pri-soft:#1B2E44;--s1:#8FA3B9;--s2:#6E9BC8;--s3:#5A8FCB;--s4:#3B78BC}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 20px 40px}
+.mono{font-variant-numeric:tabular-nums}
+.gcol{display:grid;gap:16px;min-width:0;align-content:start}
+.split{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:20px;align-items:start}
+.split2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
 .cards4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.panel{background:var(--panel);border:1px solid ${P.line};border-radius:12px;padding:18px;min-width:0}
-.eb{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:${P.teal};margin-bottom:6px}
-.h2{font-size:15px;font-weight:600;color:${P.ink};margin:0 0 12px}
-.row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;min-width:0}
-input,select{outline:none;font-size:13px;border-radius:6px;border:1px solid ${P.line};background:${P.faint};color:${P.ink}}
-.num{width:80px;text-align:right;padding:5px 8px;font-family:ui-monospace,Menlo,monospace}
-.nam{flex:1;min-width:0;padding:4px 6px;background:transparent;border:none;border-bottom:1px dashed var(--dash);border-radius:0;font-size:13px}
-.nam:focus{background:${P.faint};border-bottom:1px solid ${P.teal}}
-.sel{font-size:11px;padding:3px 4px;max-width:120px}
-input:focus,select:focus{box-shadow:0 0 0 2px rgba(11,93,78,.22)}
-.btn{cursor:pointer;font-size:12px;border:1px dashed ${P.line};background:var(--panel);color:${P.teal};border-radius:6px;padding:5px 8px}
-.x{cursor:pointer;border:none;background:transparent;color:${P.muted};font-size:15px;line-height:1;padding:0 2px}
-.scroll{max-height:240px;overflow:auto;padding-right:4px;margin-right:-4px}
-.pill{cursor:pointer;font-size:13px;padding:5px 12px;border-radius:20px}
-.grid24{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:6px;padding:8px;background:${P.faint};border-radius:6px}
-.si{width:100%;text-align:right;font-size:11px;padding:3px 3px;border:1px solid ${P.line};border-radius:4px;background:var(--panel);font-family:ui-monospace,Menlo,monospace}
-.tbl{width:100%;border-collapse:collapse;font-size:11.5px}
-.tbl th,.tbl td{padding:4px 6px;text-align:right;white-space:nowrap}
-.tbl th:first-child,.tbl td:first-child{text-align:left}
-.tbl thead th{color:${P.muted};font-weight:600;border-bottom:1px solid ${P.line};position:sticky;top:0;background:var(--panel)}
-@media(max-width:900px){.gmain{grid-template-columns:1fr}.cards4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;min-width:0}
+.eb{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px}
+.h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;min-width:0}
+input,select{outline:none;font-family:inherit;font-size:14px;border-radius:9px;border:1px solid var(--line);background:var(--faint);color:var(--ink)}
+.num{width:104px;height:40px;text-align:right;padding:0 10px;font-weight:600}
+.nam{flex:1;min-width:0;padding:6px;background:transparent;border:none;border-bottom:1px dashed var(--dash);border-radius:0;font-size:14px}
+.nam:focus{background:var(--faint);border-bottom:1px solid var(--teal)}
+.sel{font-size:13px;height:36px;padding:0 8px;max-width:150px}
+input:focus,select:focus{box-shadow:0 0 0 3px var(--pri-soft);border-color:var(--teal)}
+.btn{cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;border:1px solid var(--line);background:var(--panel);color:var(--teal);border-radius:10px;padding:8px 12px;min-height:36px}
+.btn:hover{border-color:var(--teal)}
+.primary{cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;border:none;background:var(--teal);color:#fff;border-radius:10px;padding:0 18px;min-height:40px}
+.x{cursor:pointer;border:none;background:transparent;color:var(--muted);font-size:18px;line-height:1;padding:4px 6px;min-width:32px;min-height:32px}
+.scroll{max-height:340px;overflow:auto;padding-right:4px;margin-right:-4px}
+.pill{cursor:pointer;font-family:inherit;font-size:13px;padding:6px 12px;border-radius:20px}
+.grid24{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px;padding:10px;background:var(--faint);border-radius:10px}
+.si{width:100%;height:36px;text-align:right;font-size:14px;font-weight:600;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th,.tbl td{padding:7px 8px;text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left;white-space:normal}
+.tbl thead th{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+.tblw{overflow-x:auto}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px}
+.bigname{font-family:inherit;font-size:32px;font-weight:700;letter-spacing:-.02em;color:var(--ink);border:none;background:transparent;padding:0;width:100%;min-width:0}
+.acts{display:flex;align-items:center;gap:8px;position:relative;flex-wrap:wrap}
+.menu{position:absolute;right:0;top:calc(100% + 8px);z-index:40;width:290px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;box-shadow:0 12px 32px rgba(14,26,43,.18);display:grid;gap:2px}
+.mi{cursor:pointer;font-family:inherit;text-align:left;border:none;background:transparent;color:var(--ink);font-size:14px;border-radius:8px;padding:10px 12px;min-height:40px}
+.mi:hover{background:var(--faint)}
+.tabs{display:flex;gap:4px;margin:0 0 20px;border-bottom:1px solid var(--line)}
+.tab{cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px;border:none;background:transparent;font-size:14px;font-weight:600;padding:10px 14px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--teal);border-bottom-color:var(--teal)}
+.mbar{display:flex;align-items:center;gap:6px}
+.iconbtn{cursor:pointer;font-family:inherit;width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:18px;line-height:1}
+.foldh{width:100%;display:flex;align-items:center;gap:12px;padding:16px 20px;border:none;background:transparent;cursor:pointer;text-align:left;color:var(--ink);font-family:inherit}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 9px;border-radius:12px}
+@media(max-width:900px){.split,.split2{grid-template-columns:1fr}.cards4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+@media(max-width:700px){.wrap{padding:14px 12px 104px}.bigname{font-size:24px}.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;margin:0;background:var(--panel);border-top:1px solid var(--line);border-bottom:none;padding:4px 4px calc(10px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(4,1fr)}.tab{flex-direction:column;gap:3px;font-size:11px;padding:6px 2px;min-height:54px;border-bottom:none;margin:0}.tab.on{border-bottom:none}.menu{width:min(300px,calc(100vw - 24px))}.panel{padding:16px}.top{align-items:flex-start}}
 `;
 
 /* ─────────────── DATOS ─────────────── */
@@ -268,20 +288,36 @@ function buildPrio(i, flujo, toxicas, gastos, excMin, trabajosEq) {
 }
 
 /* ─────────────── UI helpers ─────────────── */
-const Panel = ({ eb, title, children, right }) => (
-  <section className="panel">
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-      <div>{eb && <div className="eb">{eb}</div>}{title && <h2 className="h2">{title}</h2>}</div>
-      {right}
-    </div>
-    {children}
-  </section>
-);
+function Panel({ eb, title, children, right, fold, open, summary }) {
+  const [o, setO] = useState(fold ? !!open : true);
+  if (!fold) return (
+    <section className="panel">
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div>{eb && <div className="eb">{eb}</div>}{title && <h2 className="h2">{title}</h2>}</div>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
+  return (
+    <section className="panel" style={{ padding: 0 }}>
+      <button className="foldh" onClick={() => setO(!o)} aria-expanded={o}>
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+          {eb && <span className="eb" style={{ margin: 0 }}>{eb}</span>}
+          <span style={{ fontSize: 16, fontWeight: 600 }}>{title}</span>
+          {summary && <span style={{ fontSize: 14, color: P.muted }}>{summary}</span>}
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: P.muted, transform: o ? "rotate(90deg)" : "none", transition: "transform .15s" }}><path d="M9 6l6 6-6 6" /></svg>
+      </button>
+      {o && <div style={{ padding: "0 20px 18px" }}>{right && <div style={{ marginBottom: 10 }}>{right}</div>}{children}</div>}
+    </section>
+  );
+}
 const sev = (s) => (s === "critical" ? P.critical : s === "caution" ? P.caution : P.healthy);
 const Amb = ({ v, onChange }) => (
   <span style={{ display: "inline-flex", border: `1px solid ${P.line}`, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
     {["compania", "personal"].map((a) => (
-      <button key={a} onClick={() => onChange(a)} style={{ cursor: "pointer", border: "none", fontSize: 11, padding: "2px 6px", background: v === a ? P.teal : P.panel, color: v === a ? "#fff" : P.muted }}>{a === "compania" ? "Cía" : "Pers"}</button>
+      <button key={a} onClick={() => onChange(a)} style={{ cursor: "pointer", border: "none", fontSize: 12, padding: "2px 6px", background: v === a ? P.teal : P.panel, color: v === a ? "#fff" : P.muted }}>{a === "compania" ? "Cía" : "Pers"}</button>
     ))}
   </span>
 );
@@ -294,12 +330,12 @@ function Grid24({ arr, onSet, pctMode, extra }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ marginTop: 4 }}>
-      <button className="btn" style={{ fontSize: 11, padding: "3px 7px" }} onClick={() => setOpen((o) => !o)}>{open ? "▾" : "▸"} mes a mes {extra}</button>
+      <button className="btn" style={{ fontSize: 12, padding: "3px 7px" }} onClick={() => setOpen((o) => !o)}>{open ? "▾" : "▸"} mes a mes {extra}</button>
       {open && (
         <div className="grid24">
           {arr.map((v, m) => (
             <div key={m} style={{ textAlign: "center" }}>
-              <div className="mono" style={{ fontSize: 8, color: P.muted }}>{mlabel(m)}</div>
+              <div className="mono" style={{ fontSize: 9, color: P.muted }}>{mlabel(m)}</div>
               <input className="si" type="number" value={pctMode ? Math.round(v * 100) : v} onChange={(e) => onSet(m, pctMode ? (+e.target.value || 0) / 100 : (+e.target.value || 0))} />
             </div>
           ))}
@@ -330,10 +366,11 @@ const MonthSel = ({ v, onChange }) => (
     {Array.from({ length: H }, (_, m) => <option key={m} value={m}>{mlabel(m)}</option>)}
   </select>
 );
-function aggProv(items, listKey) {
+function aggProv(items, listKey, from = 0, to = H - 1) {
   const byMonth = {};
   items.forEach((it) => {
     (it[listKey] || []).forEach((monthArr, m) => {
+      if (m < from || m > to) return;
       (monthArr || []).forEach((p) => {
         const name = (p.prov || "").trim() || "—";
         if (!byMonth[name]) byMonth[name] = Array(H).fill(0);
@@ -349,12 +386,12 @@ function ProvChart({ agg, sel, color }) {
   if (sel === "__all__") {
     const entries = agg.names.map((n) => [n, agg.byTotal[n]]).filter(([, v]) => v > 0);
     const max = Math.max(1, ...entries.map(([, v]) => v));
-    if (!entries.length) return <div style={{ fontSize: 12, color: P.muted }}>Sin desglose por proveedor todavía.</div>;
+    if (!entries.length) return <div style={{ fontSize: 13, color: P.muted }}>Sin desglose por proveedor todavía.</div>;
     return (
       <div>
         {entries.map(([n, v], k) => (
           <div key={k} style={{ marginBottom: 7 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}><span>{n}</span><span className="mono" style={{ color: P.muted }}>{money(v)} · {pct(v / (agg.grand || 1))}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 2 }}><span>{n}</span><span className="mono" style={{ color: P.muted }}>{money(v)} · {pct(v / (agg.grand || 1))}</span></div>
             <div style={{ height: 11, background: P.faint, borderRadius: 3 }}><div style={{ height: "100%", width: `${(v / max) * 100}%`, background: color, borderRadius: 3 }} /></div>
           </div>
         ))}
@@ -369,7 +406,7 @@ function ProvChart({ agg, sel, color }) {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 84 }}>
         {arr.map((v, m) => <div key={m} title={`${mlabel(m)}: ${money(v)}`} style={{ flex: 1, background: color, opacity: 0.85, height: `${Math.max(2, (v / max) * 100)}%`, borderRadius: "2px 2px 0 0" }} />)}
       </div>
-      <div style={{ marginTop: 8, fontSize: 13 }}>Total a <b>{sel}</b>: <b className="mono" style={{ color }}>{money(tot)}</b></div>
+      <div style={{ marginTop: 8, fontSize: 14 }}>Total a <b>{sel}</b>: <b className="mono" style={{ color }}>{money(tot)}</b></div>
     </div>
   );
 }
@@ -386,27 +423,27 @@ function SchedProv({ item, arr, saldo, allNames, provAdd, provDel, provEdit }) {
   const monthTot = monthProvs.reduce((a, p) => a + (+p.monto || 0), 0);
   return (
     <div style={{ marginTop: 4 }}>
-      <button className="btn" style={{ fontSize: 11, padding: "3px 7px" }} onClick={() => setOpen((o) => !o)}>{open ? "▾" : "▸"} cronograma · <span className="mono" style={{ color: Math.abs(prog - saldo) > 1 ? P.caution : P.teal }}>{money(prog)}{saldo ? ` / ${money(saldo)}` : ""}</span></button>
+      <button className="btn" style={{ fontSize: 12, padding: "3px 7px" }} onClick={() => setOpen((o) => !o)}>{open ? "▾" : "▸"} cronograma · <span className="mono" style={{ color: Math.abs(prog - saldo) > 1 ? P.caution : P.teal }}>{money(prog)}{saldo ? ` / ${money(saldo)}` : ""}</span></button>
       {open && (
         <div style={{ marginTop: 6, padding: 8, background: P.faint, borderRadius: 6 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 3, marginBottom: 8 }}>
             {tot.map((v, m) => (
-              <button key={m} onClick={() => setSel(m)} style={{ cursor: "pointer", border: `1px solid ${m === sel ? P.teal : P.line}`, background: m === sel ? P.teal : P.panel, color: m === sel ? "#fff" : (v > 0 ? P.ink : P.muted), borderRadius: 4, padding: "3px 1px", fontSize: 8, lineHeight: 1.3 }}>
+              <button key={m} onClick={() => setSel(m)} style={{ cursor: "pointer", border: `1px solid ${m === sel ? P.teal : P.line}`, background: m === sel ? P.teal : P.panel, color: m === sel ? "#fff" : (v > 0 ? P.ink : P.muted), borderRadius: 4, padding: "3px 1px", fontSize: 9, lineHeight: 1.3 }}>
                 {mlabel(m)}<br /><span className="mono">{v ? money(v) : "·"}</span>
               </button>
             ))}
           </div>
-          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{mlabel(sel)} · total <span className="mono" style={{ color: P.teal }}>{money(monthTot)}</span></div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{mlabel(sel)} · total <span className="mono" style={{ color: P.teal }}>{money(monthTot)}</span></div>
           <datalist id={`prov-${arr}-${item.id}`}>{provNames.map((n) => <option key={n} value={n} />)}</datalist>
           {monthProvs.map((p) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
-              <input list={`prov-${arr}-${item.id}`} value={p.prov} placeholder={k.lbl} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "3px 6px", border: `1px solid ${P.line}`, borderRadius: 4, background: P.panel }} />
-              <span className="mono" style={{ fontSize: 12, color: P.muted }}>$<input className="si" style={{ width: 72 }} type="number" value={p.monto} onChange={(e) => provEdit(arr, item.id, sel, p.id, { monto: +e.target.value || 0 })} /></span>
+              <input list={`prov-${arr}-${item.id}`} value={p.prov} placeholder={k.lbl} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 13, padding: "3px 6px", border: `1px solid ${P.line}`, borderRadius: 4, background: P.panel }} />
+              <span className="mono" style={{ fontSize: 13, color: P.muted }}>$<input className="si" style={{ width: 72 }} type="number" value={p.monto} onChange={(e) => provEdit(arr, item.id, sel, p.id, { monto: +e.target.value || 0 })} /></span>
               <button className="x" onClick={() => provDel(arr, item.id, sel, p.id)}>×</button>
             </div>
           ))}
-          {monthProvs.length === 0 && <div style={{ fontSize: 11, color: P.muted, marginBottom: 4 }}>Sin desglose este mes.</div>}
-          <button className="btn" style={{ fontSize: 11 }} onClick={() => provAdd(arr, item.id, sel)}>+ {k.lbl.toLowerCase()}</button>
+          {monthProvs.length === 0 && <div style={{ fontSize: 12, color: P.muted, marginBottom: 4 }}>Sin desglose este mes.</div>}
+          <button className="btn" style={{ fontSize: 12 }} onClick={() => provAdd(arr, item.id, sel)}>+ {k.lbl.toLowerCase()}</button>
         </div>
       )}
     </div>
@@ -415,11 +452,11 @@ function SchedProv({ item, arr, saldo, allNames, provAdd, provDel, provEdit }) {
 function GBars({ groups, color, lblA, lblB }) {
   const shown = groups.map((g) => ({ label: g.label, rows: g.rows.filter((r) => (r.a || 0) > 0 || (r.b || 0) > 0) })).filter((g) => g.rows.length);
   const all = shown.flatMap((g) => g.rows);
-  if (!all.length) return <div style={{ fontSize: 12, color: P.muted }}>Sin datos para mostrar todavía.</div>;
+  if (!all.length) return <div style={{ fontSize: 13, color: P.muted }}>Sin datos para mostrar todavía.</div>;
   const max = Math.max(1, ...all.flatMap((r) => [r.a || 0, r.b || 0]));
   return (
     <div>
-      <div style={{ display: "flex", gap: 16, fontSize: 11, color: P.muted, marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 16, fontSize: 12, color: P.muted, marginBottom: 8 }}>
         <span><span style={{ display: "inline-block", width: 9, height: 9, background: P.line, borderRadius: 2, marginRight: 4 }} />{lblA}</span>
         <span><span style={{ display: "inline-block", width: 9, height: 9, background: color, borderRadius: 2, marginRight: 4 }} />{lblB}</span>
       </div>
@@ -428,7 +465,7 @@ function GBars({ groups, color, lblA, lblB }) {
           <React.Fragment key={gi}>
             {gi > 0 && <div style={{ alignSelf: "stretch", borderLeft: `2px dashed ${P.line}`, margin: "0 14px 46px" }} />}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              {g.label && <div className="mono" style={{ fontSize: 9, color: P.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: ".1em" }}>{g.label}</div>}
+              {g.label && <div className="mono" style={{ fontSize: 10, color: P.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: ".1em" }}>{g.label}</div>}
               <div style={{ display: "flex", alignItems: "flex-end", gap: 16, height: 104 }}>
                 {g.rows.map((r, k) => (
                   <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 auto", position: "relative" }}>
@@ -436,7 +473,7 @@ function GBars({ groups, color, lblA, lblB }) {
                       <div title={`${lblA}: ${money(r.a || 0)}`} style={{ width: 15, height: `${Math.max(2, ((r.a || 0) / max) * 100)}%`, background: P.line, borderRadius: "2px 2px 0 0" }} />
                       <div title={`${lblB}: ${money(r.b || 0)}`} style={{ width: 15, height: `${Math.max(2, ((r.b || 0) / max) * 100)}%`, background: color, borderRadius: "2px 2px 0 0" }} />
                     </div>
-                    <span style={{ position: "absolute", top: 108, left: "50%", transformOrigin: "left top", transform: "rotate(35deg)", fontSize: 9, color: P.muted, whiteSpace: "nowrap" }}>{r.n} · {pct((r.a || 0) > 0 ? (r.b || 0) / (r.a || 1) : 0)}</span>
+                    <span style={{ position: "absolute", top: 108, left: "50%", transformOrigin: "left top", transform: "rotate(35deg)", fontSize: 10, color: P.muted, whiteSpace: "nowrap" }}>{r.n} · {pct((r.a || 0) > 0 ? (r.b || 0) / (r.a || 1) : 0)}</span>
                   </div>
                 ))}
               </div>
@@ -463,7 +500,7 @@ function carryProv(actuals, item, listKey, key, prov, uptoM) {
   }
   return c;
 }
-function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive }) {
+function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive, onlyPend }) {
   const key = kind === "d" ? "dp" : "cp";
   const listKey = kind === "d" ? "pagosProv" : "cobrosProv";
   const totKey = kind === "d" ? "pagos" : "cobros";
@@ -481,7 +518,8 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive }) {
           // Solo mostrar quienes tienen movimiento este mes: programado, arrastre pendiente, o ya registrado
           const names = allNames.filter((n) => {
             const pr = monthList.filter((p) => p.prov === n).reduce((a, p) => a + (+p.monto || 0), 0);
-            return pr > 0 || itemGrp[n] !== undefined || Math.abs(carryProv(actuals, it, listKey, key, n, rm)) > 1;
+            const vis = pr > 0 || itemGrp[n] !== undefined || Math.abs(carryProv(actuals, it, listKey, key, n, rm)) > 1;
+            return vis && !(onlyPend && itemGrp[n] !== undefined);
           });
           if (!names.length) return null;
           const projFor = (name) => monthList.filter((p) => p.prov === name).reduce((a, p) => a + (+p.monto || 0), 0);
@@ -496,7 +534,7 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive }) {
             <React.Fragment key={it.id}>
               <tr style={{ borderTop: `1px solid ${P.line}` }}>
                 <td style={{ fontWeight: 600 }}>{it.n}</td>
-                <td className="mono" style={{ color: P.muted }}>{money(projTot)}{Math.abs(carryTot) > 1 && <span style={{ color: P.caution, fontSize: 10 }}> ({carryTot > 0 ? "+" : "−"}{money(Math.abs(carryTot))} arr.)</span>}</td>
+                <td className="mono" style={{ color: P.muted }}>{money(projTot)}{Math.abs(carryTot) > 1 && <span style={{ color: P.caution, fontSize: 11 }}> ({carryTot > 0 ? "+" : "−"}{money(Math.abs(carryTot))} arr.)</span>}</td>
                 <td></td>
                 <td className="mono" style={{ fontWeight: 600 }}>{money(realTot)}</td>
                 <td className="mono"><RealDelta real={realTot} proj={projTot} /></td>
@@ -507,15 +545,15 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive }) {
                 return (
                   <tr key={n} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)" }}>
                     <td style={{ paddingLeft: 16, color: P.muted }}>{reg ? (match ? "✓ " : "• ") : "○ "}{n}
-                      {reg && pend > 1 && <button title="No se va a cobrar/pagar: cerrar este saldo y no arrastrarlo" onClick={() => setWaive(rm, kind, it.id, n, true)} style={{ marginLeft: 6, cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.caution, borderRadius: 4, fontSize: 9, padding: "0 5px" }}>cerrar saldo</button>}
-                      {isWaived(rm, kind, it.id, n) && <span style={{ marginLeft: 6, fontSize: 9, color: P.healthy }}>saldo cerrado <button onClick={() => setWaive(rm, kind, it.id, n, false)} style={{ cursor: "pointer", border: "none", background: "transparent", color: P.muted, fontSize: 9, textDecoration: "underline" }}>deshacer</button></span>}
+                      {reg && pend > 1 && <button title="No se va a cobrar/pagar: cerrar este saldo y no arrastrarlo" onClick={() => setWaive(rm, kind, it.id, n, true)} style={{ marginLeft: 6, cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.caution, borderRadius: 4, fontSize: 10, padding: "0 5px" }}>cerrar saldo</button>}
+                      {isWaived(rm, kind, it.id, n) && <span style={{ marginLeft: 6, fontSize: 10, color: P.healthy }}>saldo cerrado <button onClick={() => setWaive(rm, kind, it.id, n, false)} style={{ cursor: "pointer", border: "none", background: "transparent", color: P.muted, fontSize: 10, textDecoration: "underline" }}>deshacer</button></span>}
                     </td>
                     <td className="mono" style={{ color: P.muted }}>{money(pr)}
-                      {Math.abs(car) > 1 && <div style={{ fontSize: 9, color: P.caution }}>{money(base)} prog. {car > 0 ? "+" : "−"} {money(Math.abs(car))} arr.</div>}
+                      {Math.abs(car) > 1 && <div style={{ fontSize: 10, color: P.caution }}>{money(base)} prog. {car > 0 ? "+" : "−"} {money(Math.abs(car))} arr.</div>}
                     </td>
-                    <td><button title="Usar lo proyectado" onClick={() => setActualProv(rm, kind, it.id, n, pr)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 11, padding: "1px 6px" }}>=</button></td>
+                    <td><button title="Usar lo proyectado" onClick={() => setActualProv(rm, kind, it.id, n, pr)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 12, padding: "1px 6px" }}>=</button></td>
                     <td><input className="si" style={{ width: 82 }} type="number" placeholder="—" value={reg ? realFor(n) : ""} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? null : +e.target.value)} /></td>
-                    <td className="mono">{reg ? <RealDelta real={re} proj={pr} /> : <span style={{ color: P.caution, fontSize: 10 }}>pendiente</span>}</td>
+                    <td className="mono">{reg ? <RealDelta real={re} proj={pr} /> : <span style={{ color: P.caution, fontSize: 11 }}>pendiente</span>}</td>
                   </tr>
                 );
               })}
@@ -527,19 +565,19 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive }) {
   );
 }
 function RealDelta({ real, proj }) { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; }
-function RealTabla({ rows, kind, rm, setActual, actuals, pend }) {
+function RealTabla({ rows, kind, rm, setActual, actuals, pend, onlyPend }) {
   const A = actuals && actuals[rm] ? actuals[rm] : {};
   const gk = A[kind] || {};
   return (
     <table className="tbl"><thead><tr><th>{kind === "g" ? "Partida" : kind === "d" ? "Deuda" : "Cobro"}</th><th>Proy.</th><th></th><th>Real</th><th>Δ</th>{pend && <th>Pend.</th>}</tr></thead>
-      <tbody>{rows.map((r) => {
+      <tbody>{rows.filter((r) => !(onlyPend && gk[r.id] !== undefined)).map((r) => {
         const reg = gk[r.id] !== undefined, match = reg && Math.abs(r.real - r.proj) < 1;
         return (
           <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)" }}>
             <td>{reg ? (match ? "✓ " : "• ") : "○ "}{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
-            <td><button title="Usar lo proyectado" onClick={() => setActual(rm, kind, r.id, r.proj)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 11, padding: "1px 6px" }}>=</button></td>
+            <td><button title="Usar lo proyectado" onClick={() => setActual(rm, kind, r.id, r.proj)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 12, padding: "1px 6px" }}>=</button></td>
             <td><input className="si" style={{ width: 82 }} type="number" placeholder="—" value={reg ? r.real : ""} onChange={(e) => setActual(rm, kind, r.id, e.target.value === "" ? null : +e.target.value)} /></td>
-            <td className="mono">{reg ? <RealDelta real={r.real} proj={r.proj} /> : <span style={{ color: P.caution, fontSize: 10 }}>pendiente</span>}</td>
+            <td className="mono">{reg ? <RealDelta real={r.real} proj={r.proj} /> : <span style={{ color: P.caution, fontSize: 11 }}>pendiente</span>}</td>
             {pend && <td className="mono" style={{ color: pend(r.id) > 0 ? (kind === "d" ? P.critical : P.caution) : P.healthy }}>{money(pend(r.id))}</td>}
           </tr>);
       })}
@@ -549,17 +587,17 @@ function RealTabla({ rows, kind, rm, setActual, actuals, pend }) {
 function CmpChart({ rows, la, lb, ca, cb }) {
   const max = Math.max(1, ...rows.flatMap((r) => [r.a, r.b]));
   const sorted = [...rows].sort((x, y) => Math.max(y.a, y.b) - Math.max(x.a, x.b));
-  const Bar = ({ v, c }) => (<div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 13, width: `${(v / max) * 100}%`, minWidth: v > 0 ? 3 : 0, background: c, borderRadius: 2 }} /><span className="mono" style={{ fontSize: 10, color: P.muted }}>{money(v)}</span></div>);
+  const Bar = ({ v, c }) => (<div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ height: 13, width: `${(v / max) * 100}%`, minWidth: v > 0 ? 3 : 0, background: c, borderRadius: 2 }} /><span className="mono" style={{ fontSize: 11, color: P.muted }}>{money(v)}</span></div>);
   return (
     <div>
-      <div style={{ display: "flex", gap: 16, fontSize: 11, color: P.muted, marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 16, fontSize: 12, color: P.muted, marginBottom: 8 }}>
         <span><span style={{ display: "inline-block", width: 9, height: 9, background: ca, borderRadius: 2, marginRight: 4 }} />{la}</span>
         <span><span style={{ display: "inline-block", width: 9, height: 9, background: cb, borderRadius: 2, marginRight: 4 }} />{lb}</span>
       </div>
-      {sorted.length === 0 && <div style={{ fontSize: 12, color: P.muted }}>Sin datos.</div>}
+      {sorted.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Sin datos.</div>}
       {sorted.map((r, k) => (
         <div key={k} style={{ marginBottom: 9 }}>
-          <div style={{ fontSize: 12, marginBottom: 2 }}>{r.n}</div>
+          <div style={{ fontSize: 13, marginBottom: 2 }}>{r.n}</div>
           <div style={{ display: "grid", gap: 2 }}><Bar v={r.a} c={ca} /><Bar v={r.b} c={cb} /></div>
         </div>
       ))}
@@ -569,7 +607,7 @@ function CmpChart({ rows, la, lb, ca, cb }) {
 function LineChart({ months, serieA, serieB, lblA, lblB, colA, colB }) {
   const W = 620, Hh = 190, pad = { l: 56, r: 12, t: 12, b: 26 };
   const vals = [...serieA, ...serieB.filter((v) => v !== null)];
-  if (!months.length || !vals.length) return <div style={{ fontSize: 12, color: P.muted }}>Sin datos todavía.</div>;
+  if (!months.length || !vals.length) return <div style={{ fontSize: 13, color: P.muted }}>Sin datos todavía.</div>;
   const mx = Math.max(...vals), mn = Math.min(...vals, 0);
   const rng = (mx - mn) || 1;
   const x = (k) => pad.l + (months.length === 1 ? (W - pad.l - pad.r) / 2 : (k * (W - pad.l - pad.r)) / (months.length - 1));
@@ -578,7 +616,7 @@ function LineChart({ months, serieA, serieB, lblA, lblB, colA, colB }) {
   const zeroY = y(0);
   return (
     <div style={{ overflowX: "auto" }}>
-      <div style={{ display: "flex", gap: 16, fontSize: 11, color: P.muted, marginBottom: 6 }}>
+      <div style={{ display: "flex", gap: 16, fontSize: 12, color: P.muted, marginBottom: 6 }}>
         <span><span style={{ display: "inline-block", width: 14, height: 3, background: colA, marginRight: 4, verticalAlign: "middle" }} />{lblA}</span>
         <span><span style={{ display: "inline-block", width: 14, height: 3, background: colB, marginRight: 4, verticalAlign: "middle" }} />{lblB}</span>
       </div>
@@ -599,182 +637,287 @@ function RealToggle({ v, set }) {
   return (
     <span style={{ display: "inline-flex", border: `1px solid ${P.line}`, borderRadius: 6, overflow: "hidden" }}>
       {[["gen", "General"], ["prov", "Por proveedor"]].map(([val, lbl]) => (
-        <button key={val} onClick={() => set(val)} style={{ cursor: "pointer", border: "none", fontSize: 11, padding: "3px 8px", background: v === val ? P.teal : P.panel, color: v === val ? "#fff" : P.muted }}>{lbl}</button>
+        <button key={val} onClick={() => set(val)} style={{ cursor: "pointer", border: "none", fontSize: 12, padding: "3px 8px", background: v === val ? P.teal : P.panel, color: v === val ? "#fff" : P.muted }}>{lbl}</button>
       ))}
     </span>
   );
 }
-function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWaive }) {
-  const A = (i.actuals && i.actuals[rm]) || {};
-  const projIng = i.ingreso[i.horizonte[rm] ? i.horizonte[rm].sc : "e2"] || 0;
-  const realIng = A.ingreso != null ? A.ingreso : projIng;
-  const realDebt = (m, id) => { const mm = i.actuals && i.actuals[m]; const g = mm && mm.dp && mm.dp[id]; if (g) return Object.values(g).reduce((a, v) => a + (+v || 0), 0); return (mm && mm.d && mm.d[id]) || 0; };
-  const realCob = (m, id) => { const mm = i.actuals && i.actuals[m]; const g = mm && mm.cp && mm.cp[id]; if (g) return Object.values(g).reduce((a, v) => a + (+v || 0), 0); return (mm && mm.c && mm.c[id]) || 0; };
-  const grows = i.gastosItems.map((it) => ({ id: it.id, n: it.n, proj: +it.m || 0, real: A.g && A.g[it.id] != null ? A.g[it.id] : (+it.m || 0) }));
-  const ajuTot = (it, listKey, key) => { const names = Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean))); if (!names.length) return (it[listKey === "pagosProv" ? "pagos" : "cobros"] || [])[rm] || 0; return names.reduce((a, n) => { const pr = ((it[listKey] || [])[rm] || []).filter((p) => p.prov === n).reduce((s, p) => s + (+p.monto || 0), 0); return a + Math.max(0, pr + carryProv(i.actuals, it, listKey, key, n, rm)); }, 0); };
-  const drows = i.deudas.map((d) => ({ id: d.id, n: d.n, proj: ajuTot(d, "pagosProv", "dp"), real: realDebt(rm, d.id) }));
-  const crows = i.porCobrar.map((c) => ({ id: c.id, n: c.n, proj: ajuTot(c, "cobrosProv", "cp"), real: realCob(rm, c.id) }));
-  const sum = (rows, k) => rows.reduce((a, r) => a + r[k], 0);
-  const projG = sum(grows, "proj"), realG = sum(grows, "real"), projD = sum(drows, "proj"), realD = sum(drows, "real"), projC = sum(crows, "proj"), realC = sum(crows, "real");
-  const projRes = projIng + projC - projG - projD, realRes = realIng + realC - realG - realD;
-  const pagadoReal = (id) => { let s = 0; for (const m in (i.actuals || {})) s += realDebt(m, id); return s; };
-  const cobradoReal = (id) => { let s = 0; for (const m in (i.actuals || {})) s += realCob(m, id); return s; };
-  const pagadoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) s += realDebt(m, id); return s; };
-  const cobradoHasta = (id) => { let s = 0; for (let m = 0; m <= rm; m++) s += realCob(m, id); return s; };
-  const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= rm; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
+const TONE = { bad: ["var(--bad-soft)", "var(--critical)"], warn: ["var(--warn-soft)", "var(--caution)"], info: ["var(--pri-soft)", "var(--teal)"], good: ["var(--good-soft)", "var(--healthy)"] };
+function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, mode = "cargar", from = 0, to, goCargar }) {
+  const [onlyPend, setOnlyPend] = useState(false);
   const [deuView, setDeuView] = useState("gen");
   const [cobView, setCobView] = useState("gen");
-  const [trendTo, setTrendTo] = useState(rm);
-  // Series de tendencia: resultado proyectado vs real, mes a mes
-  const gastosProyTot = i.gastosItems.reduce((a, g) => a + (+g.m || 0), 0);
-  const hasReal = (m) => { const mm = i.actuals && i.actuals[m]; return !!(mm && (mm.ingreso !== undefined || (mm.g && Object.keys(mm.g).length) || (mm.d && Object.keys(mm.d).length) || (mm.c && Object.keys(mm.c).length) || (mm.dp && Object.keys(mm.dp).length) || (mm.cp && Object.keys(mm.cp).length))); };
-  const projResMes = (m) => {
-    const ing = +i.ingreso[i.horizonte[m] ? i.horizonte[m].sc : "e2"] || 0;
-    const cob = i.porCobrar.reduce((a, c) => a + ((c.cobros || [])[m] || 0), 0);
-    const deu = i.deudas.reduce((a, d) => a + ((d.pagos || [])[m] || 0), 0);
-    return ing + cob - gastosProyTot - deu;
-  };
-  const realResMes = (m) => {
-    const mm = (i.actuals && i.actuals[m]) || {};
-    const ing = mm.ingreso !== undefined ? mm.ingreso : (+i.ingreso[i.horizonte[m] ? i.horizonte[m].sc : "e2"] || 0);
-    const gas = i.gastosItems.reduce((a, g) => a + (mm.g && mm.g[g.id] !== undefined ? mm.g[g.id] : (+g.m || 0)), 0);
-    const deu = i.deudas.reduce((a, d) => a + realDebt(m, d.id), 0);
-    const cob = i.porCobrar.reduce((a, c) => a + realCob(m, c.id), 0);
-    return ing + cob - gas - deu;
-  };
-  const trendMonths = Array.from({ length: trendTo + 1 }, (_, m) => mlabel(m));
-  const trendProj = Array.from({ length: trendTo + 1 }, (_, m) => projResMes(m));
-  const trendReal = Array.from({ length: trendTo + 1 }, (_, m) => (hasReal(m) ? realResMes(m) : null));
-  const acumProj = trendProj.reduce((a, v) => a + v, 0);
-  const acumReal = trendReal.reduce((a, v) => a + (v === null ? 0 : v), 0);
-  const mesesCargados = trendReal.filter((v) => v !== null).length;
-  const provPaidHasta = (key, itemId, prov) => { let s = 0; for (let m = 0; m <= rm; m++) { const mm = i.actuals && i.actuals[m]; const g = mm && mm[key] && mm[key][itemId]; if (g) s += (+g[prov] || 0); } return s; };
-  const genGroups = (items, saldoKey, paidFn) => [
-    { label: "Compañía", rows: items.filter((x) => x.ambito === "compania").map((x) => ({ n: x.n, a: +x[saldoKey] || 0, b: paidFn(x.id) })) },
-    { label: "Personal", rows: items.filter((x) => x.ambito === "personal").map((x) => ({ n: x.n, a: +x[saldoKey] || 0, b: paidFn(x.id) })) },
-  ];
-  const provGroups = (items, listKey, dpKey) => {
-    const build = (ambito) => {
-      const map = {};
-      items.filter((x) => x.ambito === ambito).forEach((x) => {
-        (x[listKey] || []).forEach((ma) => (ma || []).forEach((p) => { const n = (p.prov || "").trim() || "—"; if (!map[n]) map[n] = { n, a: 0, b: 0 }; map[n].a += (+p.monto || 0); }));
-        const names = new Set((x[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean));
-        names.forEach((n) => { if (!map[n]) map[n] = { n, a: 0, b: 0 }; map[n].b += provPaidHasta(dpKey, x.id, n); });
+  const A = (i.actuals && i.actuals[rm]) || {};
+  const nextM = Math.min(rm + 1, H - 1);
+  const scOf = (m) => (i.horizonte[m] ? i.horizonte[m].sc : "e2");
+  const escName = (m) => (i.escNombres && i.escNombres[scOf(m)]) || SCL[scOf(m)];
+  const projIng = +i.ingreso[scOf(rm)] || 0;
+  const ingReg = A.ingreso !== undefined && A.ingreso !== null;
+  const realIng = ingReg ? +A.ingreso || 0 : projIng;
+  const realDebt = (m, id) => { const mm = i.actuals && i.actuals[m]; const g = mm && mm.dp && mm.dp[id]; if (g) return Object.values(g).reduce((a, v) => a + (+v || 0), 0); return (mm && mm.d && mm.d[id]) || 0; };
+  const realCob = (m, id) => { const mm = i.actuals && i.actuals[m]; const g = mm && mm.cp && mm.cp[id]; if (g) return Object.values(g).reduce((a, v) => a + (+v || 0), 0); return (mm && mm.c && mm.c[id]) || 0; };
+  // Filas por proveedor con movimiento en el mes m: programado, arrastre pendiente o ya registrado
+  const provRows = (items, listKey, key, m) => {
+    const out = [], mm = (i.actuals && i.actuals[m]) || {};
+    items.forEach((it) => {
+      const grp = (mm[key] && mm[key][it.id]) || {};
+      Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean))).forEach((n) => {
+        const base = ((it[listKey] || [])[m] || []).filter((p) => p.prov === n).reduce((a, p) => a + (+p.monto || 0), 0);
+        const carry = carryProv(i.actuals, it, listKey, key, n, m);
+        const aju = Math.max(0, base + carry), reg = grp[n] !== undefined;
+        const waived = !!(mm.wv && mm.wv[key] && mm.wv[key][it.id] && mm.wv[key][it.id][n]);
+        if (aju > 0 || reg || Math.abs(carry) > 1) out.push({ item: it, n, base, carry, aju, reg, waived, real: reg ? +grp[n] || 0 : null });
       });
-      return Object.values(map);
-    };
-    return [{ label: "Compañía", rows: build("compania") }, { label: "Personal", rows: build("personal") }];
+    });
+    return out;
   };
-  const rubros = [
-    { n: "Ingreso", proj: projIng, real: realIng, pos: true },
-    { n: "Gastos", proj: projG, real: realG, pos: false },
-    { n: "Deuda pagada", proj: projD, real: realD, pos: true },
-    { n: "Cobros", proj: projC, real: realC, pos: true },
-  ];
-  return (
-    <div className="gcol" style={{ maxWidth: 820, margin: "0 auto" }}>
-      <Panel eb="Registro real · lo que pasó de verdad" title="Cargá el mes en curso" right={<MonthSel v={rm} onChange={setRm} />}>
-        <p style={{ fontSize: 13, color: P.muted, marginTop: 0 }}>Estás cargando <b style={{ color: P.ink }}>{mlabel(rm)}</b>. Los campos vienen con lo proyectado; cambiá solo lo que fue distinto.</p>
-        <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ingreso real</span><span className="mono" style={{ fontSize: 13, color: P.muted }}>proy {money(projIng)} → $<input className="num mono" type="number" value={realIng} onChange={(e) => setActualIng(rm, e.target.value === "" ? 0 : +e.target.value)} /></span></div>
-      </Panel>
+  const dRows = provRows(i.deudas, "pagosProv", "dp", rm);
+  const cRows = provRows(i.porCobrar, "cobrosProv", "cp", rm);
+  const gRows = i.gastosItems.map((g) => { const reg = !!(A.g && A.g[g.id] !== undefined); return { id: g.id, n: g.n, proj: +g.m || 0, reg, real: reg ? +A.g[g.id] || 0 : +g.m || 0 }; });
+  const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
+  // Lo pendiente cuenta al valor del plan, en todos los rubros por igual
+  const pG = sum(gRows, (r) => r.proj), eG = sum(gRows, (r) => r.real);
+  const pD = sum(dRows, (r) => r.aju), eD = sum(dRows, (r) => (r.reg ? r.real : r.aju));
+  const pC = sum(cRows, (r) => r.aju), eC = sum(cRows, (r) => (r.reg ? r.real : r.aju));
+  const projRes = projIng + pC - pG - pD, estRes = realIng + eC - eG - eD;
+  const total = 1 + gRows.length + dRows.length + cRows.length;
+  const done = (ingReg ? 1 : 0) + gRows.filter((r) => r.reg).length + dRows.filter((r) => r.reg).length + cRows.filter((r) => r.reg).length;
+  const pend = total - done, pctDone = Math.round((done / total) * 100);
 
-      <Panel eb="Tendencia · real vs proyectado" title="Resultado mes a mes" right={<span style={{ fontSize: 11, color: P.muted }}>hasta <MonthSel v={trendTo} onChange={setTrendTo} /></span>}>
-        <LineChart months={trendMonths} serieA={trendProj} serieB={trendReal} lblA="Proyectado" lblB="Real" colA={P.muted} colB={P.teal} />
-        {mesesCargados === 0 ? <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>Todavía no registraste ningún mes. A medida que cargues, la línea real se va dibujando sobre la proyectada.</div> : (
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 10, fontSize: 12 }}>
-            <span style={{ color: P.muted }}>Meses registrados: <b style={{ color: P.ink }}>{mesesCargados}</b></span>
-            <span style={{ color: P.muted }}>Acumulado real: <b className="mono" style={{ color: acumReal < 0 ? P.critical : P.healthy }}>{money(acumReal)}</b></span>
-            <span style={{ color: P.muted }}>vs proyectado: <b className="mono" style={{ color: P.muted }}>{money(acumProj)}</b></span>
-          </div>
-        )}
-      </Panel>
+  // Avisos en lenguaje claro, con nombre propio
+  const ins = [];
+  if (ingReg && realIng < projIng - 1) ins.push({ k: "bad", t: `Ingresaste ${money(projIng - realIng)} menos de lo esperado.` });
+  if (ingReg && realIng > projIng + 1) ins.push({ k: "good", t: `Ingresaste ${money(realIng - projIng)} más de lo esperado.` });
+  const shortD = dRows.filter((r) => r.reg && !r.waived && r.real < r.aju - 1).sort((a, b) => (b.aju - b.real) - (a.aju - a.real));
+  shortD.slice(0, 3).forEach((r) => ins.push({ k: "bad", t: `No le pagaste ${money(r.aju - r.real)} a ${r.n} (${r.item.n}). Pasa a ${mlabel(nextM)} como pendiente.` }));
+  if (shortD.length > 3) ins.push({ k: "bad", t: `Y ${shortD.length - 3} pagos más quedaron pendientes.` });
+  dRows.filter((r) => r.reg && r.waived && r.real < r.aju - 1).forEach((r) => ins.push({ k: "info", t: `Cerraste el saldo con ${r.n} (${r.item.n}): los ${money(r.aju - r.real)} restantes no pasan a ${mlabel(nextM)}.` }));
+  cRows.filter((r) => r.reg && r.waived && r.real < r.aju - 1).forEach((r) => ins.push({ k: "info", t: `Cerraste el saldo con ${r.n} (${r.item.n}): los ${money(r.aju - r.real)} que faltaban ya no se esperan.` }));
+  dRows.filter((r) => r.reg && r.real > r.aju + 1).slice(0, 2).forEach((r) => ins.push({ k: "good", t: `Le pagaste ${money(r.real - r.aju)} de más a ${r.n}: se descuenta del mes que viene.` }));
+  const shortC = cRows.filter((r) => r.reg && !r.waived && r.real < r.aju - 1).sort((a, b) => (b.aju - b.real) - (a.aju - a.real));
+  shortC.slice(0, 3).forEach((r) => ins.push({ k: "warn", t: `${r.n} no te pagó ${money(r.aju - r.real)} (${r.item.n}). Lo esperás en ${mlabel(nextM)}.` }));
+  cRows.filter((r) => r.reg && r.real > r.aju + 1).slice(0, 2).forEach((r) => ins.push({ k: "good", t: `${r.n} te pagó ${money(r.real - r.aju)} más de lo previsto.` }));
+  gRows.filter((r) => r.reg && r.real > r.proj + 1).sort((a, b) => (b.real - b.proj) - (a.real - a.proj)).slice(0, 2).forEach((r) => ins.push({ k: "warn", t: `Gastaste ${money(r.real - r.proj)} más de lo previsto en ${r.n}.` }));
+  const ahorroG = sum(gRows.filter((r) => r.reg && r.real < r.proj - 1), (r) => r.proj - r.real);
+  if (ahorroG > 1) ins.push({ k: "good", t: `Gastaste ${money(ahorroG)} menos de lo previsto en otras partidas.` });
+  if (estRes > projRes + 1 && shortD.length) ins.push({ k: "info", t: "Tu caja quedó arriba del plan, pero porque postergaste pagos: no es ahorro real." });
+  if (!ins.length) ins.push(done ? { k: "good", t: "Todo lo que cargaste coincide con el plan." } : { k: "info", t: `Todavía no cargaste nada de ${mlabel(rm)}.` });
 
-      <Panel eb="Panorama del mes" title={`Cómo venís en ${mlabel(rm)}`}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-          <div style={{ flex: "1 1 180px", background: P.faint, borderRadius: 8, padding: 12 }}>
-            <div style={{ fontSize: 11, color: P.muted }}>Resultado real</div>
-            <div className="mono" style={{ fontSize: 24, fontWeight: 700, color: realRes < 0 ? P.critical : P.healthy }}>{money(realRes)}</div>
-            <div style={{ fontSize: 11, color: P.muted }}>proy {money(projRes)} · <span style={{ color: (realRes - projRes) >= 0 ? P.healthy : P.critical }}>{(realRes - projRes) >= 0 ? "▲" : "▼"} {money(Math.abs(realRes - projRes))}</span></div>
-          </div>
-          {[["Ingreso", realIng, projIng, true], ["Gastos", realG, projG, false], ["Deuda pagada", realD, projD, true], ["Cobros", realC, projC, true]].map(([lbl, re, pr, pos], k) => {
-            const d = re - pr, good = pos ? d >= 0 : d <= 0, col = Math.abs(d) < 1 ? P.muted : (good ? P.healthy : P.critical);
-            return (
-              <div key={k} style={{ flex: "1 1 110px", background: P.faint, borderRadius: 8, padding: 10 }}>
-                <div style={{ fontSize: 10, color: P.muted }}>{lbl}</div>
-                <div className="mono" style={{ fontSize: 16, fontWeight: 600 }}>{money(re)}</div>
-                <div style={{ fontSize: 10, color: col }}>{Math.abs(d) < 1 ? "= proy" : `${d > 0 ? "▲" : "▼"} ${pct(pr > 0 ? Math.abs(d) / pr : 0)} vs proy`}</div>
-              </div>
-            );
-          })}
+  const kpi = (label, r, p, pos) => { const d = r - p, flat = Math.abs(d) < 1, good = pos ? d >= 0 : d <= 0; return { label, r, p, d, flat, col: flat ? P.muted : good ? P.healthy : P.critical, bg: flat ? P.faint : good ? "var(--good-soft)" : "var(--bad-soft)" }; };
+  const kpis = [kpi("Ingreso", realIng, projIng, true), kpi("Gastos", eG, pG, false), kpi("Deuda pagada", eD, pD, true), kpi("Cobros", eC, pC, true)];
+  const nextD = rm < H - 1 ? provRows(i.deudas, "pagosProv", "dp", nextM).filter((r) => r.aju > 0).sort((a, b) => (b.carry > 1) - (a.carry > 1) || b.aju - a.aju) : [];
+  const nextC = rm < H - 1 ? provRows(i.porCobrar, "cobrosProv", "cp", nextM).filter((r) => r.aju > 0).sort((a, b) => (b.carry > 1) - (a.carry > 1) || b.aju - a.aju) : [];
+  const debtTot = sum(i.deudas, (d) => +d.saldo || 0);
+  let debtPaid = 0; Object.keys(i.actuals || {}).forEach((m) => i.deudas.forEach((d) => { debtPaid += realDebt(m, d.id); }));
+
+  // ── bloques reutilizables ──
+  const monthBar = (
+    <div className="mbar">
+      <button className="iconbtn" aria-label="Mes anterior" onClick={() => setRm(Math.max(0, rm - 1))}>‹</button>
+      <MonthSel v={rm} onChange={setRm} />
+      <button className="iconbtn" aria-label="Mes siguiente" onClick={() => setRm(Math.min(H - 1, rm + 1))}>›</button>
+    </div>
+  );
+  const bar = (w, col) => <div style={{ height: 8, borderRadius: 4, background: P.faint }}><div style={{ height: 8, borderRadius: 4, width: `${Math.min(100, Math.max(0, w))}%`, background: col }} /></div>;
+  const progressCard = (
+    <section style={{ background: P.teal, color: "#fff", borderRadius: 16, padding: 18, display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>Carga de {mlabel(rm)}</span>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{done} de {total}</span>
+      </div>
+      <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,.25)" }}><div style={{ height: 8, borderRadius: 4, width: `${pctDone}%`, background: "#fff" }} /></div>
+      <span style={{ fontSize: 13, opacity: 0.9 }}>{pend === 0 ? "Listo: cargaste todo el mes." : `Te faltan ${pend} movimientos por registrar.`}</span>
+      {goCargar && pend > 0 && <button onClick={goCargar} style={{ cursor: "pointer", fontFamily: "inherit", minHeight: 44, border: "none", borderRadius: 10, background: "#fff", color: "#1D4B7A", fontSize: 14, fontWeight: 600 }}>Continuar la carga</button>}
+    </section>
+  );
+  const resultCard = (
+    <section className="panel" style={{ display: "grid", gap: 6 }}>
+      <span style={{ fontSize: 13, color: P.muted, fontWeight: 500 }}>Resultado de {mlabel(rm)}</span>
+      <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-.02em", color: estRes < 0 ? P.critical : P.ink }}>{money(estRes)}</span>
+      <span style={{ fontSize: 14, color: P.muted }}>Plan {money(projRes)} · <b style={{ color: estRes >= projRes ? P.healthy : P.critical }}>{Math.abs(estRes - projRes) < 1 ? "igual al plan" : `${estRes > projRes ? "▲" : "▼"} ${money(Math.abs(estRes - projRes))}`}</b></span>
+      {pend > 0 && <span style={{ fontSize: 13, color: P.muted }}>Los {pend} pendientes se cuentan al valor del plan hasta que los cargues.</span>}
+    </section>
+  );
+  const kpiGrid = (
+    <div className="kpis">
+      {kpis.map((k) => (
+        <div key={k.label} className="panel" style={{ padding: 14, display: "grid", gap: 3 }}>
+          <span style={{ fontSize: 13, color: P.muted, fontWeight: 500 }}>{k.label}</span>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{money(k.r)}</span>
+          <span style={{ fontSize: 13, color: P.muted }}>Plan {money(k.p)}</span>
+          <span className="chip" style={{ justifySelf: "start", color: k.col, background: k.bg }}>{k.flat ? "Igual al plan" : `${k.d > 0 ? "▲" : "▼"} ${money(Math.abs(k.d))}`}</span>
         </div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: realRes >= projRes ? P.healthy : P.critical }}>{realRes >= projRes ? "✓ Vas mejor que lo proyectado este mes." : "⚠ Vas por debajo de lo proyectado este mes."}</div>
-      </Panel>
+      ))}
+    </div>
+  );
+  const insightsBlock = (
+    <section style={{ display: "grid", gap: 8 }}>
+      <h2 className="h2" style={{ margin: "0 0 2px" }}>Qué pasó en {mlabel(rm)}</h2>
+      {ins.map((x, k) => (
+        <div key={k} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: TONE[x.k][0], borderRadius: 12, padding: "12px 14px" }}>
+          <span style={{ width: 8, height: 8, borderRadius: 4, marginTop: 7, flexShrink: 0, background: TONE[x.k][1] }} />
+          <span style={{ fontSize: 14, lineHeight: 1.45 }}>{x.t}</span>
+        </div>
+      ))}
+    </section>
+  );
+  const nextList = (rows, verb) => rows.map((r, k) => (
+    <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `1px solid ${P.faint}` }}>
+      <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 14, fontWeight: 500 }}>{r.n} <span style={{ fontSize: 12, color: P.muted, fontWeight: 400 }}>· {r.item.n}</span></span>
+        <span style={{ fontSize: 12, color: r.carry > 1 ? P.caution : P.muted }}>{r.carry > 1 ? `Incluye ${money(r.carry)} que no se ${verb} en ${mlabel(rm)}` : "Programado"}</span>
+      </span>
+      <span style={{ fontSize: 14, fontWeight: 600 }}>{money(r.aju)}</span>
+    </div>
+  ));
+  const nextBlock = rm < H - 1 && (
+    <section className="panel" style={{ display: "grid", gap: 4 }}>
+      <h2 className="h2" style={{ margin: 0 }}>Lo que viene en {mlabel(nextM)}</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 8 }}><span style={{ fontSize: 13, fontWeight: 600, color: P.muted }}>Pagos de deuda</span><b style={{ fontSize: 15 }}>{money(sum(nextD, (r) => r.aju))}</b></div>
+      {nextD.length ? nextList(nextD.slice(0, 6), "pagó") : <span style={{ fontSize: 13, color: P.muted }}>Sin pagos programados.</span>}
+      {nextD.length > 6 && <span style={{ fontSize: 12, color: P.muted }}>y {nextD.length - 6} más…</span>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 12 }}><span style={{ fontSize: 13, fontWeight: 600, color: P.muted }}>Cobros esperados</span><b style={{ fontSize: 15 }}>{money(sum(nextC, (r) => r.aju))}</b></div>
+      {nextC.length ? nextList(nextC.slice(0, 6), "cobró") : <span style={{ fontSize: 13, color: P.muted }}>Sin cobros programados.</span>}
+    </section>
+  );
+  const debtBlock = debtTot > 0 && (
+    <section className="panel" style={{ display: "grid", gap: 8 }}>
+      <h2 className="h2" style={{ margin: 0 }}>Tu deuda total</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: P.muted }}><span>Pagado {money(debtPaid)}</span><span>de {money(debtTot)}</span></div>
+      {bar((debtPaid / debtTot) * 100, P.teal)}
+      <span style={{ fontSize: 13, color: P.muted }}>Te quedan <b style={{ color: P.ink }}>{money(Math.max(0, debtTot - debtPaid))}</b> según lo que registraste.</span>
+    </section>
+  );
 
-      <Panel eb="Resumen del mes" title={`Proyectado vs real · ${mlabel(rm)}`}>
-        <table className="tbl">
-          <thead><tr><th>Rubro</th><th>Proy.</th><th>Real</th><th>Δ</th><th style={{ width: 84 }}>Real/Proy</th></tr></thead>
-          <tbody>
-            {rubros.map((ru, k) => {
-              const d = ru.real - ru.proj, good = ru.pos ? d >= 0 : d <= 0;
-              const col = Math.abs(d) < 1 ? P.muted : (good ? P.healthy : P.critical), mx = Math.max(ru.proj, ru.real, 1);
-              return (
-                <tr key={k} style={{ borderBottom: `1px solid ${P.faint}` }}>
-                  <td>{ru.n}</td>
-                  <td className="mono" style={{ color: P.muted }}>{money(ru.proj)}</td>
-                  <td className="mono">{money(ru.real)}</td>
-                  <td className="mono" style={{ color: col }}>{d > 0 ? "+" : ""}{money(d)}</td>
-                  <td><div style={{ display: "grid", gap: 2 }}><div style={{ height: 5, width: `${(ru.proj / mx) * 100}%`, background: P.line, borderRadius: 2 }} /><div style={{ height: 5, width: `${(ru.real / mx) * 100}%`, background: col === P.muted ? P.teal : col, borderRadius: 2 }} /></div></td>
-                </tr>
-              );
-            })}
-            <tr style={{ borderTop: `1px solid ${P.line}` }}>
-              <td style={{ fontWeight: 600 }}>Resultado</td>
-              <td className="mono" style={{ color: P.muted }}>{money(projRes)}</td>
-              <td className="mono" style={{ fontWeight: 700, color: realRes < 0 ? P.critical : P.healthy }}>{money(realRes)}</td>
-              <td className="mono" style={{ color: (realRes - projRes) < 0 ? P.critical : P.healthy }}>{(realRes - projRes) > 0 ? "+" : ""}{money(realRes - projRes)}</td>
-              <td></td>
-            </tr>
-          </tbody>
-        </table>
-        <div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>Barra clara = proyectado · barra de color = real. Verde: vas mejor que lo previsto; rojo: peor.</div>
-      </Panel>
+  // ── INICIO ──
+  if (mode === "home") return (
+    <div className="gcol">
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <h2 className="h2" style={{ margin: 0, fontSize: 20 }}>Cómo venís en {mlabel(rm)}</h2>
+        {monthBar}
+      </div>
+      <div className="split2">
+        <div className="gcol">{progressCard}{resultCard}{kpiGrid}</div>
+        <div className="gcol">{insightsBlock}{nextBlock}{debtBlock}</div>
+      </div>
+    </div>
+  );
 
-      <Panel eb="Gastos" title="Detalle real por partida"><RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} actuals={i.actuals} /></Panel>
-      <Panel eb="Deuda" title="Detalle real por proveedor"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} /><div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>La columna Proy. incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin pagar en meses ya registrados se suma a este mes.</div></Panel>
-      <Panel eb="Avance de deuda" title={deuView === "gen" ? "Total vs pagado, por deuda" : "Total vs pagado, por proveedor"} right={<RealToggle v={deuView} set={setDeuView} />}>
-        <GBars groups={deuView === "gen" ? genGroups(i.deudas, "saldo", pagadoHasta) : provGroups(i.deudas, "pagosProv", "dp")} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(rm)}`} />
-      </Panel>
-      <Panel eb="Cuentas por cobrar" title="Detalle real por pagador"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} /><div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>La columna Proy. incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin cobrar en meses ya registrados se suma a este mes.</div></Panel>
-      <Panel eb="Avance de cobros" title={cobView === "gen" ? "Total vs cobrado, por cuenta" : "Total vs cobrado, por pagador"} right={<RealToggle v={cobView} set={setCobView} />}>
-        <GBars groups={cobView === "gen" ? genGroups(i.porCobrar, "monto", cobradoHasta) : provGroups(i.porCobrar, "cobrosProv", "cp")} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(rm)}`} />
-      </Panel>
-      <Panel eb="Metas" title="Avance a la fecha">
-        {metaRows.length === 0 ? <div style={{ fontSize: 13, color: P.muted }}>Sin metas.</div> : (
-          <>
-            <table className="tbl">
-              <thead><tr><th>Meta</th><th>Total</th><th>Acumulado</th><th>Avance</th></tr></thead>
-              <tbody>{metaRows.map((mr, k) => (
-                <tr key={k} style={{ borderBottom: `1px solid ${P.faint}` }}><td>{mr.n}</td><td className="mono" style={{ color: P.muted }}>{money(mr.a)}</td><td className="mono" style={{ color: P.teal }}>{money(mr.b)}</td><td className="mono">{pct(mr.a > 0 ? mr.b / mr.a : 0)}</td></tr>
-              ))}</tbody>
-            </table>
-            <div style={{ marginTop: 16 }}><GBars groups={[{ label: "", rows: metaRows }]} color={P.teal} lblA="Meta total" lblB={`Acumulado a ${mlabel(rm)}`} /></div>
-          </>
+  // ── ANÁLISIS (parte real) ──
+  if (mode === "ana") {
+    const tTo = to == null ? rm : to;
+    const idx = []; for (let m = from; m <= tTo; m++) idx.push(m);
+    const gTot = sum(i.gastosItems, (g) => +g.m || 0);
+    const hasReal = (m) => { const mm = i.actuals && i.actuals[m]; return !!(mm && (mm.ingreso != null || ["g", "d", "c", "dp", "cp"].some((k) => mm[k] && Object.keys(mm[k]).length))); };
+    const projResMes = (m) => (+i.ingreso[scOf(m)] || 0) + sum(i.porCobrar, (c) => (c.cobros || [])[m] || 0) - gTot - sum(i.deudas, (d) => (d.pagos || [])[m] || 0);
+    const realResMes = (m) => { const mm = (i.actuals && i.actuals[m]) || {}; const ing = mm.ingreso != null ? +mm.ingreso : (+i.ingreso[scOf(m)] || 0); const gas = sum(i.gastosItems, (g) => (mm.g && mm.g[g.id] !== undefined ? +mm.g[g.id] : +g.m || 0)); return ing + sum(i.porCobrar, (c) => realCob(m, c.id)) - gas - sum(i.deudas, (d) => realDebt(m, d.id)); };
+    const tProj = idx.map(projResMes), tReal = idx.map((m) => (hasReal(m) ? realResMes(m) : null));
+    const cargados = tReal.filter((v) => v !== null).length;
+    const provPaidHasta = (key, itemId, prov) => { let s = 0; for (let m = 0; m <= tTo; m++) { const mm = i.actuals && i.actuals[m]; const g = mm && mm[key] && mm[key][itemId]; if (g) s += +g[prov] || 0; } return s; };
+    const paidHasta = (fn, id) => { let s = 0; for (let m = 0; m <= tTo; m++) s += fn(m, id); return s; };
+    const genGroups = (items, saldoKey, fn) => ["compania", "personal"].map((amb) => ({ label: amb === "compania" ? "Compañía" : "Personal", rows: items.filter((x) => x.ambito === amb).map((x) => ({ n: x.n, a: +x[saldoKey] || 0, b: paidHasta(fn, x.id) })) }));
+    const provGroups = (items, listKey, dpKey) => ["compania", "personal"].map((amb) => {
+      const map = {};
+      items.filter((x) => x.ambito === amb).forEach((x) => {
+        (x[listKey] || []).forEach((ma) => (ma || []).forEach((p) => { const n = (p.prov || "").trim() || "—"; if (!map[n]) map[n] = { n, a: 0, b: 0 }; map[n].a += +p.monto || 0; }));
+        new Set((x[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean)).forEach((n) => { if (!map[n]) map[n] = { n, a: 0, b: 0 }; map[n].b += provPaidHasta(dpKey, x.id, n); });
+      });
+      return { label: amb === "compania" ? "Compañía" : "Personal", rows: Object.values(map) };
+    });
+    const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= tTo; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
+    return (
+      <>
+        <Panel eb="Tendencia" title="Resultado mes a mes: plan vs real">
+          <LineChart months={idx.map(mlabel)} serieA={tProj} serieB={tReal} lblA="Plan" lblB="Real" colA={P.muted} colB={P.teal} />
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 10, fontSize: 13, color: P.muted }}>
+            <span>Meses cargados: <b style={{ color: P.ink }}>{cargados}</b></span>
+            <span>Acumulado real: <b style={{ color: P.ink }}>{money(sum(tReal, (v) => v || 0))}</b></span>
+            <span>Plan del período: <b style={{ color: P.ink }}>{money(sum(tProj, (v) => v))}</b></span>
+          </div>
+        </Panel>
+        <Panel eb="Deudas" title={deuView === "gen" ? `Total vs pagado a ${mlabel(tTo)}, por deuda` : `Total vs pagado a ${mlabel(tTo)}, por acreedor`} right={<RealToggle v={deuView} set={setDeuView} />}>
+          <GBars groups={deuView === "gen" ? genGroups(i.deudas, "saldo", realDebt) : provGroups(i.deudas, "pagosProv", "dp")} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(tTo)}`} />
+        </Panel>
+        <Panel eb="Cuentas por cobrar" title={cobView === "gen" ? `Total vs cobrado a ${mlabel(tTo)}, por cuenta` : `Total vs cobrado a ${mlabel(tTo)}, por pagador`} right={<RealToggle v={cobView} set={setCobView} />}>
+          <GBars groups={cobView === "gen" ? genGroups(i.porCobrar, "monto", realCob) : provGroups(i.porCobrar, "cobrosProv", "cp")} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(tTo)}`} />
+        </Panel>
+        {metaRows.length > 0 && (
+          <Panel eb="Metas" title={`Avance a ${mlabel(tTo)}`}>
+            <GBars groups={[{ label: "", rows: metaRows }]} color={P.teal} lblA="Meta total" lblB={`Acumulado a ${mlabel(tTo)}`} />
+          </Panel>
         )}
-      </Panel>
+      </>
+    );
+  }
+
+  // ── CARGAR ──
+  const ingRowBg = ingReg ? (Math.abs(realIng - projIng) < 1 ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)";
+  return (
+    <div className="split">
+      <div className="gcol">
+        <section className="panel" style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <h2 className="h2" style={{ margin: 0, fontSize: 18 }}>Cargar {mlabel(rm)}</h2>
+            {monthBar}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}><span>{done} de {total} registrados</span><span style={{ color: P.muted }}>{pctDone}%</span></div>
+          {bar(pctDone, P.healthy)}
+          <div style={{ display: "flex", gap: 8 }}>
+            {[[false, "Todos"], [true, "Solo pendientes"]].map(([v, l]) => (
+              <button key={l} onClick={() => setOnlyPend(v)} style={{ flex: 1, cursor: "pointer", fontFamily: "inherit", minHeight: 40, borderRadius: 10, fontSize: 14, fontWeight: 600, border: `1px solid ${onlyPend === v ? P.teal : P.line}`, background: onlyPend === v ? "var(--pri-soft)" : P.panel, color: onlyPend === v ? P.teal : P.muted }}>{l}{v ? ` (${pend})` : ""}</button>
+            ))}
+          </div>
+          <span style={{ fontSize: 13, color: P.muted }}>Tocá <b>=</b> si fue igual al plan, o escribí el monto real. Si fue cero, escribí 0 para que no quede pendiente.</span>
+        </section>
+
+        {!(onlyPend && ingReg) && (
+          <Panel eb="Ingresos" title="Ingreso del mes">
+            <div className="tblw"><table className="tbl"><thead><tr><th>Concepto</th><th>Plan</th><th></th><th>Real</th><th>Δ</th></tr></thead><tbody>
+              <tr style={{ background: ingRowBg }}>
+                <td>{ingReg ? "✓ " : "○ "}Ingreso<div style={{ fontSize: 12, color: P.muted }}>{escName(rm)}</div></td>
+                <td className="mono" style={{ color: P.muted }}>{money(projIng)}</td>
+                <td><button title="Usar lo proyectado" onClick={() => setActualIng(rm, projIng)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 6, fontSize: 13, padding: "4px 9px" }}>=</button></td>
+                <td><input className="si" style={{ width: 104 }} type="number" placeholder="—" value={ingReg ? A.ingreso : ""} onChange={(e) => setActualIng(rm, e.target.value === "" ? null : +e.target.value)} /></td>
+                <td className="mono">{ingReg ? <RealDelta real={realIng} proj={projIng} /> : <span style={{ color: P.caution, fontSize: 12 }}>pendiente</span>}</td>
+              </tr>
+            </tbody></table></div>
+          </Panel>
+        )}
+        <Panel eb="Gastos" title="Gastos del mes"><div className="tblw"><RealTabla rows={gRows} kind="g" rm={rm} setActual={setActual} actuals={i.actuals} onlyPend={onlyPend} /></div></Panel>
+        <Panel eb="Deudas" title="Pagos de deuda">
+          <div className="tblw"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} onlyPend={onlyPend} /></div>
+          {dRows.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Sin pagos programados este mes.</div>}
+          <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>El plan incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin pagar en meses ya cargados. Si acordaste pagar menos, usá <b>cerrar saldo</b>.</div>
+        </Panel>
+        <Panel eb="Cuentas por cobrar" title="Cobros del mes">
+          <div className="tblw"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} onlyPend={onlyPend} /></div>
+          {cRows.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Sin cobros programados este mes.</div>}
+          <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>Lo que no te pagaron en meses ya cargados se suma acá. Si se acordó cobrar menos, usá <b>cerrar saldo</b>.</div>
+        </Panel>
+        {pend === 0 && <div style={{ background: "var(--good-soft)", color: P.healthy, borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 600, textAlign: "center" }}>{mlabel(rm)} está completo. No te olvides de Guardar.</div>}
+      </div>
+      <div className="gcol">{resultCard}{kpiGrid}{insightsBlock}</div>
     </div>
   );
 }
 
+const TABS = [
+  { k: "home", l: "Inicio", d: "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" },
+  { k: "cargar", l: "Cargar", d: "M10 6h10M10 12h10M10 18h10M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17" },
+  { k: "plan", l: "Plan", d: "M4 7h16M4 12h16M4 17h16M14 5v4M8 10v4M16 15v4" },
+  { k: "ana", l: "Análisis", d: "M5 20V11M11 20V5M17 20v-8M3 20h18" },
+];
 function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const [profiles, setProfiles] = useState(() => { const n = parseProfiles(initialData); return (n && n.length) ? n : [{ id: uid(), nombre: auth.username, inp: blankInp() }]; });
   const [saving, setSaving] = useState("");
   const [activeId, setActiveId] = useState(() => profiles[0].id);
   const active = profiles.find((p) => p.id === activeId) || profiles[0];
   const i = active.inp;
-  const [pieMes, setPieMes] = useState(5), [ahoMes, setAhoMes] = useState(11), [deuMes, setDeuMes] = useState(11), [netoMes, setNetoMes] = useState(11);
+  const [anaFrom, setAnaFrom] = useState(0), [anaTo, setAnaTo] = useState(11), [menu, setMenu] = useState(false);
+  const pieMes = anaTo, ahoMes = anaTo, deuMes = anaTo, netoMes = anaTo;
   const [pieOff, setPieOff] = useState({});
   const [deuProv, setDeuProv] = useState("__all__"), [cobProv, setCobProv] = useState("__all__");
-  const [view, setView] = useState("proj"), [rm, setRm] = useState(0);
+  const [view, setView] = useState("home"), [rm, setRm] = useState(0);
   const setActual = (m, kind, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; const grp = { ...(cur[kind] || {}) }; if (val === null) delete grp[id]; else grp[id] = val; cur[kind] = grp; acts[m] = cur; return { ...x, actuals: acts }; });
   const setActualIng = (m, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur.ingreso = val; acts[m] = cur; return { ...x, actuals: acts }; });
   const setActualProv = (m, kind, itemId, prov, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, dp: {}, cp: {}, ...(acts[m] || {}) }; const key = kind === "d" ? "dp" : "cp"; const grp = { ...(cur[key] || {}) }; const it = { ...(grp[itemId] || {}) }; if (val === null) delete it[prov]; else it[prov] = val; grp[itemId] = it; cur[key] = grp; acts[m] = cur; return { ...x, actuals: acts }; });
@@ -790,6 +933,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const addItem = (arr, item) => updInp((x) => ({ ...x, [arr]: [...x[arr], { id: uid(), ...item }] }));
   const delItem = (arr, id) => updInp((x) => ({ ...x, [arr]: x[arr].filter((it) => it.id !== id) }));
   const cycle = (idx) => updInp((x) => { const h = [...x.horizonte]; h[idx] = { sc: SCEN[(SCEN.indexOf(h[idx].sc) + 1) % 4] }; return { ...x, horizonte: h }; });
+  const setSc = (idx, sc) => updInp((x) => { const h = [...x.horizonte]; h[idx] = { sc }; return { ...x, horizonte: h }; });
   const setSched = (arr, id, key, m, val) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => (it.id === id ? { ...it, [key]: it[key].map((y, k) => (k === m ? val : y)) } : it)) }));
   const provAdd = (arr, id, m) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); const cur = list[m] || []; list[m] = [...cur, { id: uid(), prov: "", monto: 0 }]; return recalcTot({ ...it, [k.list]: list }, k); }) }));
   const provDel = (arr, id, m, pid) => updInp((x) => ({ ...x, [arr]: x[arr].map((it) => { if (it.id !== id) return it; const k = provKeys[arr]; const list = (it[k.list] || []).map((a) => (a ? a.slice() : [])); while (list.length < H) list.push([]); list[m] = (list[m] || []).filter((p) => p.id !== pid); return recalcTot({ ...it, [k.list]: list }, k); }) }));
@@ -823,7 +967,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   // Datos de gráficos
   const pieData = useMemo(() => {
     const acc = {};
-    for (let m = 0; m <= pieMes; m++) {
+    for (let m = anaFrom; m <= pieMes; m++) {
       i.gastosItems.forEach((x) => { acc[x.cat] = (acc[x.cat] || 0) + (+x.m || 0); });
       i.deudas.forEach((d) => { acc[d.cat || "DEUDAS"] = (acc[d.cat || "DEUDAS"] || 0) + (d.pagos?.[m] || 0); });
     }
@@ -831,100 +975,125 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
     const tot = arr.reduce((a, [, v]) => a + v, 0) || 1;
     return { arr, tot, data: arr.map(([c, v], k) => ({ label: c, value: v, color: CATCOLORS[k % CATCOLORS.length] })) };
   }, [i, pieMes]);
-  const ahoData = r.flujo.slice(0, ahoMes + 1);
+  const ahoData = r.flujo.slice(anaFrom, ahoMes + 1);
   const ahoMax = Math.max(...ahoData.map((f) => f.ahorroAcum + f.sobranteAcum + f.reservaAcum), 1);
-  const netoData = r.flujo.slice(0, netoMes + 1);
+  const netoData = r.flujo.slice(anaFrom, netoMes + 1);
   const netoAbsMax = Math.max(...netoData.map((f) => Math.abs(f.patrimonioNeto)), 1);
   const fNeto = r.flujo[netoMes] || {};
   const activos = (fNeto.patrimonioAcum || 0) + (fNeto.reservaAcum || 0) + (fNeto.cobrosPend || 0);
   const pasivos = (fNeto.deudaTot || 0) + (fNeto.cardCarry || 0);
-  const deuData = r.flujo.slice(0, deuMes + 1);
+  const deuData = r.flujo.slice(anaFrom, deuMes + 1);
   const deuPagMax = Math.max(...deuData.map((f) => f.deuda), 1);
   const aggDeuda = useMemo(() => aggProv(i.deudas, "pagosProv"), [i.deudas]);
   const aggCobro = useMemo(() => aggProv(i.porCobrar, "cobrosProv"), [i.porCobrar]);
+  const aggDeudaR = useMemo(() => aggProv(i.deudas, "pagosProv", anaFrom, anaTo), [i.deudas, anaFrom, anaTo]);
+  const aggCobroR = useMemo(() => aggProv(i.porCobrar, "cobrosProv", anaFrom, anaTo), [i.porCobrar, anaFrom, anaTo]);
   const deuTotAtMes = r.flujo[deuMes]?.deudaTot || 0;
   const deuPagTot = r.flujo[deuMes]?.deudaPagAcum || 0;
 
+  const rvProps = { i, rm, setRm, setActual, setActualIng, setActualProv, setWaive };
   return (
     <div className={"app" + (theme === "dark" ? " dark" : "")} style={{ background: P.paper, color: P.ink }} onFocus={(e) => { if (e.target.tagName === "INPUT" && e.target.type === "number") e.target.select(); }}>
       <style>{CSS}</style>
       <div className="wrap">
-        {/* USER BAR */}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <span className="eb" style={{ margin: 0 }}>Usuario</span>
-          {profiles.map((p) => (
-            <button key={p.id} className="pill" onClick={() => setActiveId(p.id)} style={{ border: `1px solid ${p.id === activeId ? P.teal : P.line}`, background: p.id === activeId ? P.teal : P.panel, color: p.id === activeId ? "#fff" : P.muted }}>{p.nombre}</button>
-          ))}
-          <button className="btn" style={{ borderRadius: 20 }} onClick={newProfile}>+ Nuevo usuario</button>
-          {profiles.length > 1 && <button className="btn" style={{ borderRadius: 20, color: P.critical, borderColor: P.critical }} onClick={delProfile}>Borrar</button>}
-          <span style={{ width: 1, height: 18, background: P.line, margin: "0 2px" }} />
-          <button className="btn" style={{ borderRadius: 20 }} onClick={exportar}>⬇ Exportar respaldo</button>
-          <button className="btn" style={{ borderRadius: 20 }} onClick={() => fileRef.current && fileRef.current.click()}>⬆ Importar</button>
-          <input ref={fileRef} type="file" accept="application/json,.json" onChange={importar} style={{ display: "none" }} />
-          <button className="pill" onClick={guardar} style={{ border: "none", background: P.teal, color: "#fff", fontWeight: 600 }}>{saving === "guardando" ? "Guardando…" : "Guardar"}</button>
-          {saving === "guardado" && <span className="mono" style={{ fontSize: 11, color: P.healthy }}>guardado en la nube ✓</span>}
-          {saving === "error" && <span className="mono" style={{ fontSize: 11, color: P.critical }}>error al guardar</span>}
-          <button className="btn" style={{ borderRadius: 20 }} onClick={onLogout}>Salir</button>
-          <button className="btn" title="Cambiar tema" style={{ borderRadius: 20, marginLeft: "auto" }} onClick={toggleTheme}>{theme === "dark" ? "☀︎ Claro" : "☾ Oscuro"}</button>
-        </div>
-
-        {/* NOMBRE GRANDE */}
-        <header style={{ marginBottom: 20 }}>
-          <div className="eb mono">Planificador financiero</div>
-          <input value={active.nombre} onChange={(e) => renameProfile(e.target.value)} style={{ fontSize: 40, fontWeight: 800, color: P.ink, border: "none", background: "transparent", padding: 0, width: "100%" }} />
-          <div style={{ marginTop: 4 }}><span style={{ fontSize: 12, color: P.muted }}>Proyección al: <input type="date" value={i.fechaProy || ""} onChange={(e) => set({ fechaProy: e.target.value })} style={{ fontSize: 12, padding: "3px 6px" }} /></span></div>
-          <div style={{ display: "flex", gap: 10, marginTop: 14, borderBottom: `1px solid ${P.line}` }}>
-            {[["proj", "Proyección"], ["real", "Registro real"]].map(([k, l]) => (
-              <button key={k} onClick={() => setView(k)} style={{ cursor: "pointer", border: "none", background: "transparent", fontSize: 14, fontWeight: 600, padding: "8px 4px", color: view === k ? P.teal : P.muted, borderBottom: `2px solid ${view === k ? P.teal : "transparent"}`, marginBottom: -1 }}>{l}</button>
-            ))}
+        <header className="top">
+          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+            <div className="eb">Planificador financiero</div>
+            <input className="bigname" aria-label="Nombre del perfil" value={active.nombre} onChange={(e) => renameProfile(e.target.value)} />
+            <div style={{ fontSize: 13, color: P.muted, marginTop: 4 }}>Proyección al <input type="date" value={i.fechaProy || ""} onChange={(e) => set({ fechaProy: e.target.value })} style={{ fontSize: 13, padding: "4px 8px", height: 32 }} /></div>
+          </div>
+          <div className="acts">
+            {saving === "guardado" && <span className="chip" style={{ color: P.healthy, background: "var(--good-soft)" }}>✓ Guardado</span>}
+            {saving === "error" && <span className="chip" style={{ color: P.critical, background: "var(--bad-soft)" }}>Error al guardar</span>}
+            <button className="primary" onClick={guardar}>{saving === "guardando" ? "Guardando…" : "Guardar"}</button>
+            <button className="btn" aria-haspopup="true" aria-expanded={menu} onClick={() => setMenu(!menu)}>Cuenta ▾</button>
+            {menu && (
+              <div className="menu">
+                <div className="eb" style={{ padding: "6px 12px 2px" }}>Perfiles</div>
+                {profiles.map((p) => (
+                  <button key={p.id} className="mi" onClick={() => { setActiveId(p.id); setMenu(false); }} style={{ fontWeight: p.id === activeId ? 700 : 400, color: p.id === activeId ? P.teal : P.ink }}>{p.id === activeId ? "● " : ""}{p.nombre}</button>
+                ))}
+                <button className="mi" onClick={() => { newProfile(); setMenu(false); }} style={{ color: P.teal }}>+ Nuevo perfil</button>
+                {profiles.length > 1 && <button className="mi" onClick={() => { if (window.confirm(`¿Borrar el perfil "${active.nombre}"? No se puede deshacer.`)) { delProfile(); setMenu(false); } }} style={{ color: P.critical }}>Borrar este perfil</button>}
+                <div style={{ height: 1, background: P.line, margin: "6px 4px" }} />
+                <button className="mi" onClick={() => { exportar(); setMenu(false); }}>Exportar respaldo</button>
+                <button className="mi" onClick={() => { if (fileRef.current) fileRef.current.click(); setMenu(false); }}>Importar respaldo</button>
+                <button className="mi" onClick={toggleTheme}>{theme === "dark" ? "Modo claro" : "Modo oscuro"}</button>
+                <div style={{ height: 1, background: P.line, margin: "6px 4px" }} />
+                <button className="mi" onClick={onLogout} style={{ color: P.critical }}>Cerrar sesión</button>
+              </div>
+            )}
+            <input ref={fileRef} type="file" accept="application/json,.json" onChange={importar} style={{ display: "none" }} />
           </div>
         </header>
+        <nav className="tabs" aria-label="Secciones">
+          {TABS.map((t) => (
+            <button key={t.k} className={"tab" + (view === t.k ? " on" : "")} onClick={() => { setView(t.k); setMenu(false); }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={t.d} /></svg>
+              {t.l}
+            </button>
+          ))}
+        </nav>
 
-        {view === "real" && <RealView i={i} rm={rm} setRm={setRm} setActual={setActual} setActualIng={setActualIng} setActualProv={setActualProv} setWaive={setWaive} />}
-        {view === "proj" && (
-        <div className="gmain">
-          {/* ── INPUTS ── */}
-          <div className="gcol">
-            <Panel eb="Ingreso · 4 escenarios" title="Labor mensual (bruto)">
+        {view === "home" && <RealView mode="home" {...rvProps} goCargar={() => setView("cargar")} />}
+        {view === "cargar" && <RealView mode="cargar" {...rvProps} />}
+        {view === "plan" && (
+          <div className="gcol" style={{ maxWidth: 880, width: "100%", margin: "0 auto" }}>
+            <p style={{ margin: "0 0 2px", fontSize: 14, color: P.muted }}>Lo que esperás que pase. Se edita pocas veces; la carga de cada mes va en <b style={{ color: P.ink }}>Cargar</b>. Tocá cada bloque para abrirlo.</p>
+            <Panel fold open eb="Ingresos" title="Ingresos y escenarios" summary={`${SCEN.length} escenarios · de ${money(Math.min(...SCEN.map((k) => +i.ingreso[k] || 0)))} a ${money(Math.max(...SCEN.map((k) => +i.ingreso[k] || 0)))} por mes`}>
               {SCEN.map((k) => (
                 <div className="row" key={k}>
                   <input className="nam" value={i.escNombres?.[k] ?? SCL[k]} onChange={(e) => setEscN(k, e.target.value)} style={{ color: SCC[k], fontWeight: 600, maxWidth: 160 }} />
-                  <span className="mono" style={{ color: P.muted, fontSize: 13 }}>$<input className="num mono" type="number" value={i.ingreso[k]} onChange={(e) => setIng(k, +e.target.value || 0)} /></span>
+                  <span className="mono" style={{ color: P.muted, fontSize: 14 }}>$<input className="num mono" type="number" value={i.ingreso[k]} onChange={(e) => setIng(k, +e.target.value || 0)} /></span>
                 </div>
               ))}
-              <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ahorro líquido hoy</span><input className="num mono" type="number" value={i.ahorroLiquido} onChange={(e) => set({ ahorroLiquido: +e.target.value || 0 })} /></div>
+              <div className="row"><span style={{ fontSize: 14, color: P.muted }}>Ahorro líquido hoy</span><input className="num mono" type="number" value={i.ahorroLiquido} onChange={(e) => set({ ahorroLiquido: +e.target.value || 0 })} /></div>
+              <div style={{ borderTop: `1px solid ${P.line}`, marginTop: 10, paddingTop: 12 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Qué escenario esperás cada mes</div>
+                <div style={{ fontSize: 13, color: P.muted, marginBottom: 10 }}>Elegilo en cada mes; toda la proyección se recalcula sola.</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))", gap: 8 }}>
+                  {i.horizonte.map((h, idx) => (
+                    <label key={idx} style={{ display: "grid", gap: 4, padding: 8, borderRadius: 10, background: P.faint, borderTop: `3px solid ${SCC[h.sc]}` }}>
+                      <span style={{ fontSize: 12, color: P.muted, fontWeight: 600 }}>{mlabel(idx)}</span>
+                      <select className="sel" value={h.sc} onChange={(e) => setSc(idx, e.target.value)} style={{ maxWidth: "100%", width: "100%" }}>
+                        {SCEN.map((k) => <option key={k} value={k}>{(i.escNombres && i.escNombres[k]) || SCL[k]}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </Panel>
 
-            <Panel eb="Reserva y ahorro · % del ingreso" title="Definí el % mes a mes">
-              <div className="row"><span style={{ fontSize: 13, color: P.muted }} title="17% impuestos + 2% imprevistos + 5% colchón">Reserva fiscal ⓘ</span></div>
+            <Panel fold eb="Reserva y ahorro" title="Reserva de impuestos y ahorro" summary={`Este mes: reserva ${pct(i.reserva[rm] || 0)} · ahorro ${pct(i.ahorro[rm] || 0)}`}>
+              <div className="row"><span style={{ fontSize: 14, color: P.muted }} title="17% impuestos + 2% imprevistos + 5% colchón">Reserva fiscal ⓘ</span></div>
               <Grid24 arr={i.reserva} pctMode onSet={(m, v) => setArr("reserva", m, v)} extra="(reserva %)" />
-              <div className="row" style={{ marginTop: 6 }}><span style={{ fontSize: 13, color: P.muted }}>Ahorro</span></div>
+              <div className="row" style={{ marginTop: 6 }}><span style={{ fontSize: 14, color: P.muted }}>Ahorro</span></div>
               <Grid24 arr={i.ahorro} pctMode onSet={(m, v) => setArr("ahorro", m, v)} extra="(ahorro %)" />
             </Panel>
 
-            <Panel eb="Gastos personales" title={`${money(r.gastos)}/mes`}>
+            <Panel fold eb="Gastos" title="Gastos fijos" summary={`${money(r.gastos)} por mes · ${i.gastosItems.length} partidas`}>
               <div className="scroll">
                 {i.gastosItems.map((it) => (
                   <div key={it.id} style={{ padding: "4px 0", borderBottom: `1px solid ${P.faint}` }}>
                     <div className="row" style={{ padding: "1px 0" }}>
                       <input className="nam" value={it.n} onChange={(e) => editItem("gastosItems", it.id, { n: e.target.value })} />
-                      <span className="mono" style={{ color: P.muted, fontSize: 13 }}>$<input className="num mono" type="number" step="0.01" value={it.m} onChange={(e) => editItem("gastosItems", it.id, { m: +e.target.value || 0 })} /></span>
+                      <span className="mono" style={{ color: P.muted, fontSize: 14 }}>$<input className="num mono" type="number" step="0.01" value={it.m} onChange={(e) => editItem("gastosItems", it.id, { m: +e.target.value || 0 })} /></span>
                       <button className="x" onClick={() => delItem("gastosItems", it.id)}>×</button>
                     </div>
                     <CatSel v={it.cat} cats={i.categorias} onChange={(c) => editItem("gastosItems", it.id, { cat: c })} />
                   </div>
                 ))}
-                {i.gastosItems.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin partidas todavía.</div>}
+                {i.gastosItems.length === 0 && <div style={{ fontSize: 13, color: P.muted, padding: "6px 0" }}>Sin partidas todavía.</div>}
               </div>
               <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("gastosItems", { n: "Nueva partida", m: 0, cat: i.categorias[0] })}>+ Agregar partida</button>
-              <label className="row" style={{ marginTop: 4, cursor: "pointer" }}><span style={{ fontSize: 12.5, color: P.muted }}>Gastos categorizados y con topes</span><input type="checkbox" checked={i.gastosControlados} onChange={(e) => set({ gastosControlados: e.target.checked })} /></label>
+              <label className="row" style={{ marginTop: 4, cursor: "pointer" }}><span style={{ fontSize: 13.5, color: P.muted }}>Gastos categorizados y con topes</span><input type="checkbox" checked={i.gastosControlados} onChange={(e) => set({ gastosControlados: e.target.checked })} /></label>
               <div className="row" style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${P.line}` }}>
                 <input className="nam" placeholder="+ nueva categoría" value={newCat} onChange={(e) => setNewCat(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCat()} />
                 <button className="btn" onClick={addCat}>Agregar</button>
               </div>
             </Panel>
 
-            <Panel eb="Balance" title="Tu panorama real">
+            <Panel fold eb="Balance" title="Compañía y personal" summary={`Por pagar ${money(M.totalPagar)} · por cobrar ${money(M.totalCobrar)}`}>
               <table className="tbl">
                 <thead><tr><th></th><th>Compañía</th><th>Personal</th><th>Total</th></tr></thead>
                 <tbody>
@@ -935,7 +1104,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
               </table>
             </Panel>
 
-            <Panel eb="Cuentas por pagar" title="Deudas">
+            <Panel fold eb="Deudas" title="Cuentas por pagar" summary={`${money(M.totalPagar)} · ${i.deudas.length} deudas · cronograma por acreedor`}>
               {i.deudas.map((d) => (
                 <div key={d.id} style={{ padding: "8px 0", borderBottom: `1px solid ${P.faint}` }}>
                   <div className="row" style={{ padding: "2px 0" }}>
@@ -945,16 +1114,16 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                   </div>
                   <div className="row" style={{ padding: "2px 0" }}>
                     <CatSel v={d.cat} cats={i.categorias} onChange={(c) => editItem("deudas", d.id, { cat: c })} />
-                    <span style={{ fontSize: 12, color: P.muted }}>saldo <input className="num mono" type="number" value={d.saldo} onChange={(e) => editItem("deudas", d.id, { saldo: +e.target.value || 0 })} /></span>
+                    <span style={{ fontSize: 13, color: P.muted }}>saldo <input className="num mono" type="number" value={d.saldo} onChange={(e) => editItem("deudas", d.id, { saldo: +e.target.value || 0 })} /></span>
                   </div>
                   <SchedProv item={d} arr="deudas" saldo={+d.saldo || 0} allNames={aggDeuda.names} provAdd={provAdd} provDel={provDel} provEdit={provEdit} />
                 </div>
               ))}
-              {i.deudas.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin deudas.</div>}
+              {i.deudas.length === 0 && <div style={{ fontSize: 13, color: P.muted, padding: "6px 0" }}>Sin deudas.</div>}
               <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("deudas", { n: "Nueva deuda", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", pagos: z(), pagosProv: Array.from({ length: H }, () => []) })}>+ Agregar deuda</button>
             </Panel>
 
-            <Panel eb="Cuentas por cobrar" title="Lo que te deben">
+            <Panel fold eb="Cobros" title="Cuentas por cobrar" summary={`${money(M.totalCobrar)} · ${i.porCobrar.length} cuentas · cronograma por pagador`}>
               {i.porCobrar.map((c) => (
                 <div key={c.id} style={{ padding: "8px 0", borderBottom: `1px solid ${P.faint}` }}>
                   <div className="row" style={{ padding: "2px 0" }}>
@@ -963,16 +1132,16 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                     <button className="x" onClick={() => delItem("porCobrar", c.id)}>×</button>
                   </div>
                   <div className="row" style={{ padding: "2px 0" }}>
-                    <span style={{ fontSize: 12, color: P.muted }}>monto <input className="num mono" type="number" value={c.monto} onChange={(e) => editItem("porCobrar", c.id, { monto: +e.target.value || 0 })} /></span>
+                    <span style={{ fontSize: 13, color: P.muted }}>monto <input className="num mono" type="number" value={c.monto} onChange={(e) => editItem("porCobrar", c.id, { monto: +e.target.value || 0 })} /></span>
                   </div>
                   <SchedProv item={c} arr="porCobrar" saldo={+c.monto || 0} allNames={aggCobro.names} provAdd={provAdd} provDel={provDel} provEdit={provEdit} />
                 </div>
               ))}
-              {i.porCobrar.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin cuentas por cobrar.</div>}
+              {i.porCobrar.length === 0 && <div style={{ fontSize: 13, color: P.muted, padding: "6px 0" }}>Sin cuentas por cobrar.</div>}
               <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("porCobrar", { n: "Nuevo cobro", monto: 0, ambito: "personal", cat: "INVERSIONES", cobros: z(), cobrosProv: Array.from({ length: H }, () => []) })}>+ Agregar cobro</button>
             </Panel>
 
-            <Panel eb="Metas" title="Objetivos con fecha">
+            <Panel fold eb="Metas" title="Metas con fecha" summary={i.metas.length ? `${i.metas.length} meta${i.metas.length === 1 ? "" : "s"} · ${money(i.metas.reduce((a, g) => a + (+g.monto || 0), 0))}` : "Sin metas todavía"}>
               {i.metas.map((g) => {
                 const ini = g.mesInicio ?? 0, fin = g.mesObjetivo, off = g.mesesOff || {}, modo = g.modo || "auto";
                 let cnt = 0; for (let k = ini; k <= fin; k++) if (!off[k]) cnt++;
@@ -985,51 +1154,66 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                       <button className="x" onClick={() => delItem("metas", g.id)}>×</button>
                     </div>
                     <div className="row" style={{ padding: "2px 0" }}>
-                      <span style={{ fontSize: 12, color: P.muted }}>monto $<input className="num mono" type="number" value={g.monto} onChange={(e) => editItem("metas", g.id, { monto: +e.target.value || 0 })} /></span>
+                      <span style={{ fontSize: 13, color: P.muted }}>monto $<input className="num mono" type="number" value={g.monto} onChange={(e) => editItem("metas", g.id, { monto: +e.target.value || 0 })} /></span>
                     </div>
                     <div className="row" style={{ padding: "2px 0" }}>
-                      <span style={{ fontSize: 12, color: P.muted }}>desde <MonthSel v={ini} onChange={(v) => editItem("metas", g.id, { mesInicio: v })} /></span>
-                      <span style={{ fontSize: 12, color: P.muted }}>hasta <MonthSel v={fin} onChange={(v) => editItem("metas", g.id, { mesObjetivo: v })} /></span>
+                      <span style={{ fontSize: 13, color: P.muted }}>desde <MonthSel v={ini} onChange={(v) => editItem("metas", g.id, { mesInicio: v })} /></span>
+                      <span style={{ fontSize: 13, color: P.muted }}>hasta <MonthSel v={fin} onChange={(v) => editItem("metas", g.id, { mesObjetivo: v })} /></span>
                     </div>
                     <div style={{ display: "flex", gap: 6, margin: "5px 0" }}>
                       {[["auto", "Cuota automática"], ["manual", "Manual"]].map(([mv, ml]) => (
-                        <button key={mv} onClick={() => editItem("metas", g.id, { modo: mv })} style={{ cursor: "pointer", fontSize: 11, padding: "3px 8px", borderRadius: 6, border: `1px solid ${modo === mv ? P.teal : P.line}`, background: modo === mv ? P.teal : P.panel, color: modo === mv ? "#fff" : P.muted }}>{ml}</button>
+                        <button key={mv} onClick={() => editItem("metas", g.id, { modo: mv })} style={{ cursor: "pointer", fontSize: 12, padding: "3px 8px", borderRadius: 6, border: `1px solid ${modo === mv ? P.teal : P.line}`, background: modo === mv ? P.teal : P.panel, color: modo === mv ? "#fff" : P.muted }}>{ml}</button>
                       ))}
                     </div>
                     {modo === "manual" && fin >= ini && (
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 4, padding: 8, background: P.faint, borderRadius: 6, marginBottom: 4 }}>
                         {Array.from({ length: fin - ini + 1 }, (_, j) => ini + j).map((k) => (
-                          <label key={k} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, cursor: "pointer", color: P.muted }}>
+                          <label key={k} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, cursor: "pointer", color: P.muted }}>
                             <input type="checkbox" checked={!off[k]} onChange={() => editItem("metas", g.id, { mesesOff: { ...off, [k]: !off[k] } })} />{mlabel(k)}
                           </label>
                         ))}
                       </div>
                     )}
-                    {g.monto > 0 && fin >= ini && <div className="mono" style={{ fontSize: 11, color: P.teal, textAlign: "right" }}>cuota {money(cuota)}/mes · {activos} mes{activos === 1 ? "" : "es"}</div>}
+                    {g.monto > 0 && fin >= ini && <div className="mono" style={{ fontSize: 12, color: P.teal, textAlign: "right" }}>cuota {money(cuota)}/mes · {activos} mes{activos === 1 ? "" : "es"}</div>}
                   </div>
                 );
               })}
-              {i.metas.length === 0 && <div style={{ fontSize: 12, color: P.muted, padding: "6px 0" }}>Sin metas. Agregá auto, casa, viaje…</div>}
+              {i.metas.length === 0 && <div style={{ fontSize: 13, color: P.muted, padding: "6px 0" }}>Sin metas. Agregá auto, casa, viaje…</div>}
               <button className="btn" style={{ marginTop: 8 }} onClick={() => addItem("metas", { n: "Nueva meta", monto: 0, mesInicio: 0, mesObjetivo: 11, modo: "auto", mesesOff: {} })}>+ Agregar meta</button>
             </Panel>
           </div>
-
-          {/* ── OUTPUT ── */}
+        )}
+        {view === "ana" && (
           <div className="gcol">
+            <section className="panel" style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div><div className="eb">Período de análisis</div><h2 className="h2" style={{ margin: 0 }}>{anaFrom === anaTo ? mlabel(anaFrom) : `${mlabel(anaFrom)} → ${mlabel(anaTo)}`}</h2></div>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 14, color: P.muted }}>
+                  Desde <MonthSel v={anaFrom} onChange={(v) => { setAnaFrom(v); if (v > anaTo) setAnaTo(v); }} />
+                  hasta <MonthSel v={anaTo} onChange={(v) => { setAnaTo(v); if (v < anaFrom) setAnaFrom(v); }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {[["Este mes", rm, rm], ["Próximos 3", rm, Math.min(H - 1, rm + 2)], ["Próximos 6", rm, Math.min(H - 1, rm + 5)], ["12 meses", 0, 11], ["Todo", 0, H - 1]].map(([l, f, t]) => (
+                  <button key={l} className="btn" onClick={() => { setAnaFrom(f); setAnaTo(t); }} style={{ borderColor: anaFrom === f && anaTo === t ? P.teal : P.line, background: anaFrom === f && anaTo === t ? "var(--pri-soft)" : P.panel }}>{l}</button>
+                ))}
+              </div>
+            </section>
+            <RealView mode="ana" {...rvProps} from={anaFrom} to={anaTo} />
             <Panel eb={`Etapa actual · ${r.etapa}`} title="Prueba de estrés: excedente por escenario">
               <div className="cards4" style={{ marginBottom: 12 }}>
                 {r.escArr.map((e) => {
                   const c = e.allIn < 0 ? P.critical : SCC[e.s];
                   return (
                     <div key={e.s} style={{ background: P.faint, border: `1px solid ${P.line}`, borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontSize: 11, color: SCC[e.s] }}>{i.escNombres?.[e.s] ?? SCL[e.s]}</div>
+                      <div style={{ fontSize: 12, color: SCC[e.s] }}>{i.escNombres?.[e.s] ?? SCL[e.s]}</div>
                       <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: c, marginTop: 2 }}>{money(e.allIn)}</div>
                       <div style={{ height: 5, borderRadius: 3, background: P.line, marginTop: 6 }}><div style={{ height: "100%", borderRadius: 3, width: `${(Math.abs(e.allIn) / maxAbs) * 100}%`, background: c }} /></div>
                     </div>
                   );
                 })}
               </div>
-              <p style={{ fontSize: 13, color: P.muted, margin: 0 }}>Equilibrio en <b className="mono" style={{ color: P.ink }}>{r.trabajosEq.toFixed(1)}</b> trabajos/mes · deuda neta <b className="mono" style={{ color: P.ink }}>{money(M.deudaNeta)}</b>.</p>
+              <p style={{ fontSize: 14, color: P.muted, margin: 0 }}>Equilibrio en <b className="mono" style={{ color: P.ink }}>{r.trabajosEq.toFixed(1)}</b> trabajos/mes · deuda neta <b className="mono" style={{ color: P.ink }}>{money(M.deudaNeta)}</b>.</p>
             </Panel>
 
             {/* FLUJO MES A MES */}
@@ -1038,7 +1222,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                 <table className="tbl">
                   <thead><tr><th>Mes</th><th>Salario</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Déf. ant.</th><th>Metas</th><th>Reserva</th><th>Ahorro</th><th>Resultado</th></tr></thead>
                   <tbody>
-                    {r.flujo.map((f) => {
+                    {r.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo).map((f) => {
                       const res = f.resultado;
                       const label = f.deficit < 0 ? "Déficit" : f.cubierto > 0 ? "Cubierto" : f.sobrante > 0 ? "Sobra" : "—";
                       return (
@@ -1052,7 +1236,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                           <td className="mono" style={{ color: P.critical }}>{f.metasMes ? "−" + money(f.metasMes) : "·"}</td>
                           <td className="mono" style={{ color: P.muted }}>{f.reserva ? money(f.reserva) : "·"}</td>
                           <td className="mono" style={{ color: P.teal }}>{f.ahorro ? money(f.ahorro) : "·"}</td>
-                          <td className="mono" style={{ color: res < 0 ? P.critical : P.ink, fontWeight: 600 }}>{money(res)} <span style={{ fontSize: 9, color: P.muted }}>{label}</span></td>
+                          <td className="mono" style={{ color: res < 0 ? P.critical : P.ink, fontWeight: 600 }}>{money(res)} <span style={{ fontSize: 10, color: P.muted }}>{label}</span></td>
                         </tr>
                       );
                     })}
@@ -1062,7 +1246,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
             </Panel>
 
             {/* PROYECCIÓN DEUDA (horizonte) */}
-            <Panel eb="Horizonte · cliqueá cada mes para cambiar su escenario" title="Proyección: deuda restante mes a mes">
+            <Panel eb="Horizonte · el color es el escenario de cada mes" title="Deuda restante mes a mes">
               <div style={{ display: "grid", gridTemplateColumns: `repeat(${H},1fr)`, gap: 2, alignItems: "end" }}>
                 {r.flujo.map((f, idx) => (
                   <div key={idx} onClick={() => cycle(idx)} title={`${mlabel(idx)}: ${i.escNombres?.[f.sc] ?? SCL[f.sc]} · deuda ${money(f.deudaTot)}`} style={{ cursor: "pointer", textAlign: "center" }}>
@@ -1073,7 +1257,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                   </div>
                 ))}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 12, fontSize: 12.5 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 12, fontSize: 13.5 }}>
                 <span style={{ color: P.muted }}>Libre de deuda: <b className="mono" style={{ color: r.mile.libre ? P.healthy : P.caution }}>{r.mile.libre ? mlabel(r.mile.libre.m) : "> " + H + " m"}</b></span>
                 <span style={{ color: P.muted }}>Colchón 1 mes: <b className="mono" style={{ color: r.mile.colchon1 ? P.healthy : P.caution }}>{r.mile.colchon1 ? mlabel(r.mile.colchon1.m) : "> " + H + " m"}</b></span>
                 {r.mile.bajoCero && <span style={{ color: P.critical }}>Déficit en {mlabel(r.mile.bajoCero.m)}</span>}
@@ -1082,8 +1266,8 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
 
             <div className="g2">
               {/* TORTA POR CATEGORÍA */}
-              <Panel eb="Gasto por categoría" title="Acumulado a la fecha" right={<MonthSel v={pieMes} onChange={setPieMes} />}>
-                {pieData.data.length === 0 ? <div style={{ fontSize: 13, color: P.muted }}>Sin datos.</div> : (() => {
+              <Panel eb="Gasto por categoría" title={anaFrom === anaTo ? mlabel(anaTo) : `${mlabel(anaFrom)} – ${mlabel(anaTo)}`}>
+                {pieData.data.length === 0 ? <div style={{ fontSize: 14, color: P.muted }}>Sin datos.</div> : (() => {
                   const activeData = pieData.data.filter((d) => !pieOff[d.label]);
                   const activeTot = activeData.reduce((a, d) => a + d.value, 0) || 1;
                   return (
@@ -1093,13 +1277,13 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                         {pieData.data.slice(0, 12).map((d, k) => {
                           const off = !!pieOff[d.label];
                           return (
-                            <div key={k} onClick={() => setPieOff((o) => ({ ...o, [d.label]: !o[d.label] }))} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12, marginBottom: 3, opacity: off ? 0.45 : 1 }}>
+                            <div key={k} onClick={() => setPieOff((o) => ({ ...o, [d.label]: !o[d.label] }))} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 13, marginBottom: 3, opacity: off ? 0.45 : 1 }}>
                               <span style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: off ? "line-through" : "none" }}><span style={{ width: 10, height: 10, borderRadius: 2, background: off ? P.muted : d.color }} />{d.label}</span>
                               <span className="mono" style={{ color: P.muted }}>{off ? "—" : pct(d.value / activeTot)}</span>
                             </div>
                           );
                         })}
-                        <div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>Tocá una categoría para incluirla o quitarla del análisis.</div>
+                        <div style={{ fontSize: 11, color: P.muted, marginTop: 6 }}>Tocá una categoría para incluirla o quitarla del análisis.</div>
                       </div>
                     </div>
                   );
@@ -1107,7 +1291,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
               </Panel>
 
               {/* TODO LO POSITIVO ACUMULADO */}
-              <Panel eb="Acumulado a la fecha" title="Todo lo positivo: ahorro + sobrante + reserva" right={<MonthSel v={ahoMes} onChange={setAhoMes} />}>
+              <Panel eb="Acumulado a la fecha" title="Todo lo positivo: ahorro + sobrante + reserva">
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 90 }}>
                   {ahoData.map((f, k) => (
                     <div key={k} title={`${mlabel(f.m)}: total ${money(f.ahorroAcum + f.sobranteAcum + f.reservaAcum)}`} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%" }}>
@@ -1117,7 +1301,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                     </div>
                   ))}
                 </div>
-                <div style={{ marginTop: 10, fontSize: 12, display: "grid", gap: 3 }}>
+                <div style={{ marginTop: 10, fontSize: 13, display: "grid", gap: 3 }}>
                   <div>Total a {mlabel(ahoMes)}: <b className="mono" style={{ color: P.ink }}>{money((r.flujo[ahoMes]?.ahorroAcum || 0) + (r.flujo[ahoMes]?.sobranteAcum || 0) + (r.flujo[ahoMes]?.reservaAcum || 0))}</b></div>
                   <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.teal, borderRadius: 2, marginRight: 5 }} />Ahorro (definido) <b className="mono">{money(r.flujo[ahoMes]?.ahorroAcum || 0)}</b></div>
                   <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.softgreen, borderRadius: 2, marginRight: 5 }} />Sobrante (libre / inversión) <b className="mono">{money(r.flujo[ahoMes]?.sobranteAcum || 0)}</b></div>
@@ -1127,13 +1311,13 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
             </div>
 
             {/* DEUDA A LA FECHA */}
-            <Panel eb="Proyección de deuda" title="Pagos y saldo restante a la fecha" right={<MonthSel v={deuMes} onChange={setDeuMes} />}>
+            <Panel eb="Proyección de deuda" title="Pagos y saldo restante a la fecha">
               <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 70 }}>
                 {deuData.map((f, k) => (
                   <div key={k} title={`${mlabel(f.m)}: pagó ${money(f.deuda)}`} style={{ flex: 1, background: P.teal, opacity: 0.8, height: `${Math.max(2, (f.deuda / deuPagMax) * 100)}%`, borderRadius: "2px 2px 0 0" }} />
                 ))}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, fontSize: 13 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, fontSize: 14 }}>
                 <span style={{ color: P.muted }}>Pagado en el período: <b className="mono" style={{ color: P.ink }}>{money(deuPagTot)}</b></span>
                 <span style={{ color: P.muted }}>Deuda restante a {mlabel(deuMes)}: <b className="mono" style={{ color: deuTotAtMes > 0 ? P.critical : P.healthy }}>{money(deuTotAtMes)}</b></span>
               </div>
@@ -1143,25 +1327,25 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
             <Panel eb="Deuda por proveedor" title={deuProv === "__all__" ? "Cuánto le debés a cada uno" : "Pago mes a mes"} right={
               <select className="sel" style={{ maxWidth: 150 }} value={deuProv} onChange={(e) => setDeuProv(e.target.value)}>
                 <option value="__all__">Deuda total</option>
-                {aggDeuda.names.map((n) => <option key={n} value={n}>{n}</option>)}
+                {aggDeudaR.names.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>}>
-              <ProvChart agg={aggDeuda} sel={deuProv} color={P.critical} />
+              <ProvChart agg={aggDeudaR} sel={deuProv} color={P.critical} />
             </Panel>
 
             {/* COBROS POR PAGADOR */}
             <Panel eb="Cobros por pagador" title={cobProv === "__all__" ? "Cuánto te debe cada uno" : "Cobro mes a mes"} right={
               <select className="sel" style={{ maxWidth: 150 }} value={cobProv} onChange={(e) => setCobProv(e.target.value)}>
                 <option value="__all__">Cobro total</option>
-                {aggCobro.names.map((n) => <option key={n} value={n}>{n}</option>)}
+                {aggCobroR.names.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>}>
-              <ProvChart agg={aggCobro} sel={cobProv} color={P.healthy} />
+              <ProvChart agg={aggCobroR} sel={cobProv} color={P.healthy} />
             </Panel>
 
             {/* PATRIMONIO NETO — foto para análisis */}
-            <Panel eb="Patrimonio neto · foto para análisis" title="Activos − Pasivos a la fecha" right={<MonthSel v={netoMes} onChange={setNetoMes} />}>
+            <Panel eb="Patrimonio neto · foto para análisis" title={`Activos − Pasivos a ${mlabel(anaTo)}`}>
               <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
                 <div style={{ minWidth: 150 }}>
-                  <div style={{ fontSize: 11, color: P.muted }}>Patrimonio neto a {mlabel(netoMes)}</div>
+                  <div style={{ fontSize: 12, color: P.muted }}>Patrimonio neto a {mlabel(netoMes)}</div>
                   <div className="mono" style={{ fontSize: 26, fontWeight: 700, color: (fNeto.patrimonioNeto || 0) < 0 ? P.critical : P.healthy }}>{money(fNeto.patrimonioNeto || 0)}</div>
                 </div>
                 <table className="tbl" style={{ flex: 1, minWidth: 240 }}>
@@ -1177,7 +1361,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                 </table>
               </div>
               <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 11, color: P.muted, marginBottom: 4 }}>Trayectoria del patrimonio neto</div>
+                <div style={{ fontSize: 12, color: P.muted, marginBottom: 4 }}>Trayectoria del patrimonio neto</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 1, height: 76, position: "relative" }}>
                   <div style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: P.line }} />
                   {netoData.map((f, k) => {
@@ -1204,8 +1388,8 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                     <div key={g.id} style={{ position: "relative", padding: "7px 0", display: "flex", alignItems: "center", gap: 12 }}>
                       <span style={{ position: "absolute", left: -24, width: 20, display: "flex", justifyContent: "center" }}><span style={{ width: g.pass ? 10 : 12, height: g.pass ? 10 : 12, borderRadius: 8, background: g.pass ? dot : P.panel, border: `2px solid ${dot}` }} /></span>
                       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <span style={{ fontSize: 13, color: g.pass ? P.ink : here ? P.critical : P.muted, fontWeight: here ? 600 : 400 }}><span className="mono" style={{ fontSize: 11, color: P.muted, marginRight: 8 }}>{g.id}</span>{g.l}</span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}><span className="mono" style={{ fontSize: 12, color: P.muted }}>{g.v}</span>{here && <span className="mono" style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: P.critical, color: "#fff" }}>ACÁ ESTÁS</span>}</span>
+                        <span style={{ fontSize: 14, color: g.pass ? P.ink : here ? P.critical : P.muted, fontWeight: here ? 600 : 400 }}><span className="mono" style={{ fontSize: 12, color: P.muted, marginRight: 8 }}>{g.id}</span>{g.l}</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}><span className="mono" style={{ fontSize: 13, color: P.muted }}>{g.v}</span>{here && <span className="mono" style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: P.critical, color: "#fff" }}>ACÁ ESTÁS</span>}</span>
                       </div>
                     </div>
                   );
@@ -1215,23 +1399,22 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
 
             <div className="g2">
               <Panel eb="Diagnóstico" title="Lo que enciende alarmas">
-                {r.flags.length === 0 && <div style={{ fontSize: 13, color: r.anyIncome ? P.healthy : P.muted }}>{r.anyIncome ? "Sin alertas activas." : "Cargá ingresos para ver el diagnóstico."}</div>}
-                {r.flags.map((f, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 13, marginBottom: 10 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: sev(f.s), flexShrink: 0 }} /><span>{f.t}</span></div>))}
+                {r.flags.length === 0 && <div style={{ fontSize: 14, color: r.anyIncome ? P.healthy : P.muted }}>{r.anyIncome ? "Sin alertas activas." : "Cargá ingresos para ver el diagnóstico."}</div>}
+                {r.flags.map((f, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 14, marginBottom: 10 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: sev(f.s), flexShrink: 0 }} /><span>{f.t}</span></div>))}
               </Panel>
               <Panel eb="Plan de acción" title="Qué atacar, en este orden">
-                {r.prio.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Cargá datos para el plan.</div>}
-                {r.prio.map((p, k) => (<div key={k} style={{ display: "flex", gap: 12, marginBottom: 10 }}><span className="mono" style={{ fontSize: 13, fontWeight: 600, color: P.teal, flexShrink: 0 }}>{k + 1}</span><span style={{ fontSize: 13 }}><b style={{ color: P.ink }}>{p.t}. </b><span style={{ color: P.muted }}>{p.d}</span></span></div>))}
+                {r.prio.length === 0 && <div style={{ fontSize: 14, color: P.muted }}>Cargá datos para el plan.</div>}
+                {r.prio.map((p, k) => (<div key={k} style={{ display: "flex", gap: 12, marginBottom: 10 }}><span className="mono" style={{ fontSize: 14, fontWeight: 600, color: P.teal, flexShrink: 0 }}>{k + 1}</span><span style={{ fontSize: 14 }}><b style={{ color: P.ink }}>{p.t}. </b><span style={{ color: P.muted }}>{p.d}</span></span></div>))}
               </Panel>
             </div>
 
             {/* SUGERENCIAS */}
             <Panel eb="Sugerencias y oportunidades" title="Dónde hay margen">
-              {r.sug.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Cargá más datos para ver oportunidades.</div>}
-              {r.sug.map((s, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 13, marginBottom: 10 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: sev(s.s), flexShrink: 0 }} /><span>{s.t}</span></div>))}
+              {r.sug.length === 0 && <div style={{ fontSize: 14, color: P.muted }}>Cargá más datos para ver oportunidades.</div>}
+              {r.sug.map((s, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 14, marginBottom: 10 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: sev(s.s), flexShrink: 0 }} /><span>{s.t}</span></div>))}
             </Panel>
 
           </div>
-        </div>
         )}
       </div>
     </div>
@@ -1255,13 +1438,13 @@ function Login({ onLogin, theme, toggleTheme }) {
     <div className={"app" + (theme === "dark" ? " dark" : "")} style={{ background: P.paper, color: P.ink, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <style>{CSS}</style>
       <div className="panel" style={{ width: "100%", maxWidth: 360, position: "relative" }}>
-        <button onClick={toggleTheme} title="Cambiar tema" style={{ position: "absolute", top: 14, right: 14, cursor: "pointer", border: `1px solid ${P.line}`, background: "transparent", color: P.muted, borderRadius: 8, padding: "4px 8px", fontSize: 13 }}>{theme === "dark" ? "☀︎" : "☾"}</button>
+        <button onClick={toggleTheme} title="Cambiar tema" style={{ position: "absolute", top: 14, right: 14, cursor: "pointer", border: `1px solid ${P.line}`, background: "transparent", color: P.muted, borderRadius: 8, padding: "4px 8px", fontSize: 14 }}>{theme === "dark" ? "☀︎" : "☾"}</button>
         <div className="eb mono">Planificador financiero</div>
         <h1 style={{ fontSize: 26, fontWeight: 800, margin: "4px 0 16px" }}>Ingresá</h1>
         <div style={{ display: "grid", gap: 10 }}>
           <input placeholder="Usuario" value={u} onChange={(e) => setU(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} style={{ padding: "10px 12px", fontSize: 14 }} />
           <input placeholder="Clave" type="password" value={p} onChange={(e) => setP(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} style={{ padding: "10px 12px", fontSize: 14 }} />
-          {err && <div style={{ fontSize: 13, color: P.critical }}>{err}</div>}
+          {err && <div style={{ fontSize: 14, color: P.critical }}>{err}</div>}
           <button onClick={submit} disabled={busy} style={{ cursor: "pointer", border: "none", background: P.teal, color: "#fff", fontWeight: 600, padding: "10px 12px", borderRadius: 8, fontSize: 14 }}>{busy ? "Entrando…" : "Entrar"}</button>
         </div>
       </div>
