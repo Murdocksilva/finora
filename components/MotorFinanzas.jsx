@@ -471,10 +471,15 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv }) {
       <thead><tr><th>{kind === "d" ? "Deuda / proveedor" : "Cobro / pagador"}</th><th>Proy.</th><th></th><th>Real</th><th>Δ</th></tr></thead>
       <tbody>
         {items.map((it) => {
-          const names = Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean)));
-          if (!names.length) names.push(kind === "d" ? "Proveedor 1" : "Pagador 1");
+          const allNames = Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean)));
           const monthList = (it[listKey] || [])[rm] || [];
           const itemGrp = grp[it.id] || {};
+          // Solo mostrar quienes tienen movimiento este mes: programado, arrastre pendiente, o ya registrado
+          const names = allNames.filter((n) => {
+            const pr = monthList.filter((p) => p.prov === n).reduce((a, p) => a + (+p.monto || 0), 0);
+            return pr > 0 || itemGrp[n] !== undefined || Math.abs(carryProv(actuals, it, listKey, key, n, rm)) > 1;
+          });
+          if (!names.length) return null;
           const projFor = (name) => monthList.filter((p) => p.prov === name).reduce((a, p) => a + (+p.monto || 0), 0);
           const carryFor = (name) => carryProv(actuals, it, listKey, key, name, rm);
           const ajuFor = (name) => Math.max(0, projFor(name) + carryFor(name));
@@ -495,8 +500,8 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv }) {
               {names.map((n) => {
                 const pr = ajuFor(n), car = carryFor(n), re = +realFor(n) || 0, reg = regFor(n), match = reg && Math.abs(re - pr) < 1;
                 return (
-                  <tr key={n} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "transparent" }}>
-                    <td style={{ paddingLeft: 16, color: P.muted }}>{reg ? (match ? "✓ " : "• ") : ""}{n}</td>
+                  <tr key={n} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)" }}>
+                    <td style={{ paddingLeft: 16, color: P.muted }}>{reg ? (match ? "✓ " : "• ") : "○ "}{n}</td>
                     <td className="mono" style={{ color: P.muted }}>{money(pr)}{Math.abs(car) > 1 && <span style={{ color: P.caution, fontSize: 10 }} title="Incluye lo no cumplido de meses anteriores"> ({car > 0 ? "+" : "−"}{money(Math.abs(car))})</span>}</td>
                     <td><button title="Usar lo proyectado" onClick={() => setActualProv(rm, kind, it.id, n, pr)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 11, padding: "1px 6px" }}>=</button></td>
                     <td><input className="si" style={{ width: 82 }} type="number" value={realFor(n)} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? 0 : +e.target.value)} /></td>
@@ -520,8 +525,8 @@ function RealTabla({ rows, kind, rm, setActual, actuals, pend }) {
       <tbody>{rows.map((r) => {
         const reg = gk[r.id] !== undefined, match = reg && Math.abs(r.real - r.proj) < 1;
         return (
-          <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "transparent" }}>
-            <td>{reg ? (match ? "✓ " : "• ") : ""}{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
+          <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)" }}>
+            <td>{reg ? (match ? "✓ " : "• ") : "○ "}{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
             <td><button title="Usar lo proyectado" onClick={() => setActual(rm, kind, r.id, r.proj)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 11, padding: "1px 6px" }}>=</button></td>
             <td><input className="si" style={{ width: 82 }} type="number" value={r.real} onChange={(e) => setActual(rm, kind, r.id, e.target.value === "" ? 0 : +e.target.value)} /></td>
             <td className="mono"><RealDelta real={r.real} proj={r.proj} /></td>
@@ -548,6 +553,35 @@ function CmpChart({ rows, la, lb, ca, cb }) {
           <div style={{ display: "grid", gap: 2 }}><Bar v={r.a} c={ca} /><Bar v={r.b} c={cb} /></div>
         </div>
       ))}
+    </div>
+  );
+}
+function LineChart({ months, serieA, serieB, lblA, lblB, colA, colB }) {
+  const W = 620, Hh = 190, pad = { l: 56, r: 12, t: 12, b: 26 };
+  const vals = [...serieA, ...serieB.filter((v) => v !== null)];
+  if (!months.length || !vals.length) return <div style={{ fontSize: 12, color: P.muted }}>Sin datos todavía.</div>;
+  const mx = Math.max(...vals), mn = Math.min(...vals, 0);
+  const rng = (mx - mn) || 1;
+  const x = (k) => pad.l + (months.length === 1 ? (W - pad.l - pad.r) / 2 : (k * (W - pad.l - pad.r)) / (months.length - 1));
+  const y = (v) => pad.t + (1 - (v - mn) / rng) * (Hh - pad.t - pad.b);
+  const path = (s) => s.map((v, k) => (v === null ? null : `${x(k)},${y(v)}`)).filter(Boolean).join(" ");
+  const zeroY = y(0);
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <div style={{ display: "flex", gap: 16, fontSize: 11, color: P.muted, marginBottom: 6 }}>
+        <span><span style={{ display: "inline-block", width: 14, height: 3, background: colA, marginRight: 4, verticalAlign: "middle" }} />{lblA}</span>
+        <span><span style={{ display: "inline-block", width: 14, height: 3, background: colB, marginRight: 4, verticalAlign: "middle" }} />{lblB}</span>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${Hh}`} style={{ minWidth: 420 }}>
+        <line x1={pad.l} y1={zeroY} x2={W - pad.r} y2={zeroY} stroke={P.line} strokeWidth="1" strokeDasharray="3 3" />
+        <text x={pad.l - 6} y={y(mx) + 4} textAnchor="end" fontSize="9" fill={P.muted}>{money(mx)}</text>
+        <text x={pad.l - 6} y={y(mn) + 4} textAnchor="end" fontSize="9" fill={P.muted}>{money(mn)}</text>
+        <polyline points={path(serieA)} fill="none" stroke={colA} strokeWidth="2" strokeDasharray="5 4" />
+        <polyline points={path(serieB)} fill="none" stroke={colB} strokeWidth="2.5" />
+        {serieA.map((v, k) => <circle key={"a" + k} cx={x(k)} cy={y(v)} r="2.5" fill={colA} />)}
+        {serieB.map((v, k) => (v === null ? null : <circle key={"b" + k} cx={x(k)} cy={y(v)} r="3.5" fill={colB}><title>{`${months[k]}: real ${money(v)} · proy ${money(serieA[k])}`}</title></circle>))}
+        {months.map((lb, k) => <text key={k} x={x(k)} y={Hh - 8} textAnchor="middle" fontSize="8" fill={P.muted}>{lb}</text>)}
+      </svg>
     </div>
   );
 }
@@ -580,6 +614,30 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
   const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= rm; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
   const [deuView, setDeuView] = useState("gen");
   const [cobView, setCobView] = useState("gen");
+  const [trendTo, setTrendTo] = useState(rm);
+  // Series de tendencia: resultado proyectado vs real, mes a mes
+  const gastosProyTot = i.gastosItems.reduce((a, g) => a + (+g.m || 0), 0);
+  const hasReal = (m) => { const mm = i.actuals && i.actuals[m]; return !!(mm && (mm.ingreso !== undefined || (mm.g && Object.keys(mm.g).length) || (mm.d && Object.keys(mm.d).length) || (mm.c && Object.keys(mm.c).length) || (mm.dp && Object.keys(mm.dp).length) || (mm.cp && Object.keys(mm.cp).length))); };
+  const projResMes = (m) => {
+    const ing = +i.ingreso[i.horizonte[m] ? i.horizonte[m].sc : "e2"] || 0;
+    const cob = i.porCobrar.reduce((a, c) => a + ((c.cobros || [])[m] || 0), 0);
+    const deu = i.deudas.reduce((a, d) => a + ((d.pagos || [])[m] || 0), 0);
+    return ing + cob - gastosProyTot - deu;
+  };
+  const realResMes = (m) => {
+    const mm = (i.actuals && i.actuals[m]) || {};
+    const ing = mm.ingreso !== undefined ? mm.ingreso : (+i.ingreso[i.horizonte[m] ? i.horizonte[m].sc : "e2"] || 0);
+    const gas = i.gastosItems.reduce((a, g) => a + (mm.g && mm.g[g.id] !== undefined ? mm.g[g.id] : (+g.m || 0)), 0);
+    const deu = i.deudas.reduce((a, d) => a + realDebt(m, d.id), 0);
+    const cob = i.porCobrar.reduce((a, c) => a + realCob(m, c.id), 0);
+    return ing + cob - gas - deu;
+  };
+  const trendMonths = Array.from({ length: trendTo + 1 }, (_, m) => mlabel(m));
+  const trendProj = Array.from({ length: trendTo + 1 }, (_, m) => projResMes(m));
+  const trendReal = Array.from({ length: trendTo + 1 }, (_, m) => (hasReal(m) ? realResMes(m) : null));
+  const acumProj = trendProj.reduce((a, v) => a + v, 0);
+  const acumReal = trendReal.reduce((a, v) => a + (v === null ? 0 : v), 0);
+  const mesesCargados = trendReal.filter((v) => v !== null).length;
   const provPaidHasta = (key, itemId, prov) => { let s = 0; for (let m = 0; m <= rm; m++) { const mm = i.actuals && i.actuals[m]; const g = mm && mm[key] && mm[key][itemId]; if (g) s += (+g[prov] || 0); } return s; };
   const genGroups = (items, saldoKey, paidFn) => [
     { label: "Compañía", rows: items.filter((x) => x.ambito === "compania").map((x) => ({ n: x.n, a: +x[saldoKey] || 0, b: paidFn(x.id) })) },
@@ -600,7 +658,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
   const rubros = [
     { n: "Ingreso", proj: projIng, real: realIng, pos: true },
     { n: "Gastos", proj: projG, real: realG, pos: false },
-    { n: "Deuda", proj: projD, real: realD, pos: false },
+    { n: "Deuda pagada", proj: projD, real: realD, pos: true },
     { n: "Cobros", proj: projC, real: realC, pos: true },
   ];
   return (
@@ -610,6 +668,17 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
         <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ingreso real</span><span className="mono" style={{ fontSize: 13, color: P.muted }}>proy {money(projIng)} → $<input className="num mono" type="number" value={realIng} onChange={(e) => setActualIng(rm, e.target.value === "" ? 0 : +e.target.value)} /></span></div>
       </Panel>
 
+      <Panel eb="Tendencia · real vs proyectado" title="Resultado mes a mes" right={<span style={{ fontSize: 11, color: P.muted }}>hasta <MonthSel v={trendTo} onChange={setTrendTo} /></span>}>
+        <LineChart months={trendMonths} serieA={trendProj} serieB={trendReal} lblA="Proyectado" lblB="Real" colA={P.muted} colB={P.teal} />
+        {mesesCargados === 0 ? <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>Todavía no registraste ningún mes. A medida que cargues, la línea real se va dibujando sobre la proyectada.</div> : (
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 10, fontSize: 12 }}>
+            <span style={{ color: P.muted }}>Meses registrados: <b style={{ color: P.ink }}>{mesesCargados}</b></span>
+            <span style={{ color: P.muted }}>Acumulado real: <b className="mono" style={{ color: acumReal < 0 ? P.critical : P.healthy }}>{money(acumReal)}</b></span>
+            <span style={{ color: P.muted }}>vs proyectado: <b className="mono" style={{ color: P.muted }}>{money(acumProj)}</b></span>
+          </div>
+        )}
+      </Panel>
+
       <Panel eb="Panorama del mes" title={`Cómo venís en ${mlabel(rm)}`}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
           <div style={{ flex: "1 1 180px", background: P.faint, borderRadius: 8, padding: 12 }}>
@@ -617,7 +686,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
             <div className="mono" style={{ fontSize: 24, fontWeight: 700, color: realRes < 0 ? P.critical : P.healthy }}>{money(realRes)}</div>
             <div style={{ fontSize: 11, color: P.muted }}>proy {money(projRes)} · <span style={{ color: (realRes - projRes) >= 0 ? P.healthy : P.critical }}>{(realRes - projRes) >= 0 ? "▲" : "▼"} {money(Math.abs(realRes - projRes))}</span></div>
           </div>
-          {[["Ingreso", realIng, projIng, true], ["Gastos", realG, projG, false], ["Deuda pagada", realD, projD, false], ["Cobros", realC, projC, true]].map(([lbl, re, pr, pos], k) => {
+          {[["Ingreso", realIng, projIng, true], ["Gastos", realG, projG, false], ["Deuda pagada", realD, projD, true], ["Cobros", realC, projC, true]].map(([lbl, re, pr, pos], k) => {
             const d = re - pr, good = pos ? d >= 0 : d <= 0, col = Math.abs(d) < 1 ? P.muted : (good ? P.healthy : P.critical);
             return (
               <div key={k} style={{ flex: "1 1 110px", background: P.faint, borderRadius: 8, padding: 10 }}>
