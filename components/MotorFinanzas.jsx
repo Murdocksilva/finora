@@ -186,7 +186,32 @@ function parseProfiles(d) {
 function loadSaved() { try { if (typeof window !== "undefined" && window.localStorage) { const s = window.localStorage.getItem(LSKEY); if (s) return parseProfiles(JSON.parse(s)); } } catch (e) {} return null; }
 
 /* ─────────────── MOTOR ─────────────── */
-function runEngine(i) {
+function monthEst(i, m) {
+  const mm = (i.actuals && i.actuals[m]) || {};
+  const sc = i.horizonte[m] ? i.horizonte[m].sc : "e2";
+  const ingReg = mm.ingreso !== undefined && mm.ingreso !== null;
+  let reg = ingReg;
+  const ing = ingReg ? +mm.ingreso || 0 : +i.ingreso[sc] || 0;
+  const gas = i.gastosItems.reduce((a, g) => { const r = !!(mm.g && mm.g[g.id] !== undefined); if (r) reg = true; return a + (r ? +mm.g[g.id] || 0 : +g.m || 0); }, 0);
+  const prov = (items, listKey, key) => {
+    const per = {};
+    items.forEach((it) => {
+      const grp = (mm[key] && mm[key][it.id]) || {};
+      let t = 0;
+      Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean))).forEach((n) => {
+        if (grp[n] !== undefined) { reg = true; t += +grp[n] || 0; return; }
+        const base = ((it[listKey] || [])[m] || []).filter((p) => p.prov === n).reduce((s2, p) => s2 + (+p.monto || 0), 0);
+        t += Math.max(0, base + carryProv(i.actuals, it, listKey, key, n, m));
+      });
+      per[it.id] = t;
+    });
+    return per;
+  };
+  const deuPer = prov(i.deudas, "pagosProv", "dp"), cobPer = prov(i.porCobrar, "cobrosProv", "cp");
+  const met = i.metas.reduce((a, g) => { const r = !!(mm.mt && mm.mt[g.id] !== undefined); if (r) reg = true; return a + (r ? +mm.mt[g.id] || 0 : Math.max(0, metaAporte(g, m) + carryMeta(i.actuals, g, m))); }, 0);
+  return { ing, gas, deuPer, cobPer, met, reg };
+}
+function runEngine(i, useReal) {
   const gastos = i.gastosItems.reduce((a, x) => a + (+x.m || 0), 0);
   const vivienda = i.gastosItems.filter((x) => x.viv).reduce((a, x) => a + (+x.m || 0), 0);
   const rf0 = i.reserva[0] || 0;
@@ -239,12 +264,15 @@ function runEngine(i) {
   const cobrosSt = i.porCobrar.map((c) => ({ ...c, rem: +c.monto || 0 }));
   let ahorroAcum = i.ahorroLiquido, pool = 0, deudaPagAcum = 0, reservaAcum = 0, metasAcum = 0, deficitAcum = 0, cardPrev = 0;
   const flujo = i.horizonte.map((h, m) => {
-    const salario = +i.ingreso[h.sc] || 0;
-    let cobros = 0; cobrosSt.forEach((c) => { const g = Math.min(c.cobros?.[m] || 0, c.rem); c.rem -= g; cobros += g; });
-    let deuda = 0; deudas.forEach((d) => { const p = Math.min(d.pagos?.[m] || 0, d.rem); d.rem -= p; deuda += p; });
-    const metasMes = i.metas.reduce((a, g) => a + metaAporte(g, m), 0);
+    const E = useReal ? monthEst(i, m) : null;
+    const salario = E ? E.ing : +i.ingreso[h.sc] || 0;
+    let cobros = 0; cobrosSt.forEach((c) => { const g = E ? E.cobPer[c.id] || 0 : Math.min(c.cobros?.[m] || 0, c.rem); c.rem = Math.max(0, c.rem - g); cobros += g; });
+    let deuda = 0; deudas.forEach((d) => { const p = E ? E.deuPer[d.id] || 0 : Math.min(d.pagos?.[m] || 0, d.rem); d.rem = Math.max(0, d.rem - p); deuda += p; });
+    const metasMes = E ? E.met : i.metas.reduce((a, g) => a + metaAporte(g, m), 0);
+    const gastosM = E ? E.gas : gastos;
+    const operativo = salario + cobros - gastosM - deuda - metasMes; // = "Resultado del mes" de Cargar
     const tarjeta = cardPrev; // parte del déficit anterior que el sobrante no alcanzó a cubrir
-    const base = salario + cobros - gastos - deuda - metasMes - tarjeta;
+    const base = operativo - tarjeta;
     const tgtR = salario * (i.reserva[m] || 0), tgtA = salario * (i.ahorro[m] || 0);
     let reserva = 0, ahorro = 0, sobrante = 0, deficit = 0, cubierto = 0;
     if (base >= 0) {
@@ -265,7 +293,7 @@ function runEngine(i) {
     const cardCarry = cardPrev;
     const patrimonioNeto = patrimonioAcum + reservaAcum + cobrosPend - deudaTot - cardCarry;
     const resultado = base >= 0 ? sobrante : deficit;
-    return { m, sc: h.sc, salario, cobros, gastos, deuda, metasMes, tarjeta, cubierto, reserva, ahorro, sobrante, deficit, resultado, deudaTot, cobrosPend, cardCarry, patrimonioNeto, ahorroAcum, sobranteAcum, patrimonioAcum, deudaPagAcum, reservaAcum, metasAcum, deficitAcum };
+    return { m, sc: h.sc, real: !!(E && E.reg), operativo, salario, cobros, gastos: gastosM, deuda, metasMes, tarjeta, cubierto, reserva, ahorro, sobrante, deficit, resultado, deudaTot, cobrosPend, cardCarry, patrimonioNeto, ahorroAcum, sobranteAcum, patrimonioAcum, deudaPagAcum, reservaAcum, metasAcum, deficitAcum };
   });
   const libre = anyIncome ? flujo.find((f) => f.deudaTot <= 0) : null;
   const colchon1 = anyIncome ? flujo.find((f) => f.patrimonioAcum >= gastos) : null;
@@ -778,6 +806,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   const [onlyPend, setOnlyPend] = useState(false);
   const [deuView, setDeuView] = useState("gen");
   const [cobView, setCobView] = useState("gen");
+  const rolling = useMemo(() => runEngine(i, true), [i]);
   const [personD, setPersonD] = useState("__all__"), [personC, setPersonC] = useState("__all__"), [personM, setPersonM] = useState("__all__");
   const A = (i.actuals && i.actuals[rm]) || {};
   const nextM = Math.min(rm + 1, H - 1);
@@ -876,6 +905,14 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
       <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-.02em", color: estRes < 0 ? P.critical : P.ink }}>{money(estRes)}</span>
       <span style={{ fontSize: 14, color: P.muted }}>Plan {money(projRes)} · <b style={{ color: estRes >= projRes ? P.healthy : P.critical }}>{Math.abs(estRes - projRes) < 1 ? "igual al plan" : `${estRes > projRes ? "▲" : "▼"} ${money(Math.abs(estRes - projRes))}`}</b></span>
       {pend > 0 && <span style={{ fontSize: 13, color: P.muted }}>Los {pend} pendientes se cuentan al valor del plan hasta que los cargues.</span>}
+      {(() => { const f = rolling.flujo[rm] || {}; const L = (l, v, c) => <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><span>{l}</span><span style={{ color: c || P.muted }}>{v}</span></div>; return (
+        <div style={{ borderTop: `1px solid ${P.faint}`, marginTop: 6, paddingTop: 8, display: "grid", gap: 4, fontSize: 13, color: P.muted }}>
+          {f.tarjeta > 0 && L("Déficit del mes anterior", "−" + money(f.tarjeta), P.critical)}
+          {f.cubierto > 0 && L("Cubierto con sobrantes anteriores", "+" + money(f.cubierto))}
+          {f.reserva > 0 && L("Reserva de impuestos", "−" + money(f.reserva))}
+          {f.ahorro > 0 && L("Ahorro", "−" + money(f.ahorro))}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, color: P.ink, fontWeight: 600 }}><span>{(f.resultado || 0) < 0 ? "Déficit: pasa a tarjeta" : "Queda libre"}</span><span style={{ color: (f.resultado || 0) < 0 ? P.critical : P.ink }}>{money(f.resultado || 0)}</span></div>
+        </div>); })()}
     </section>
   );
   const kpiGrid = (
@@ -1203,6 +1240,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const importar = (e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const norm = parseProfiles(JSON.parse(rd.result)); if (norm) { setProfiles(norm); setActiveId(norm[0].id); } else alert("El archivo no tiene el formato esperado."); } catch (err) { alert("No se pudo leer el archivo."); } }; rd.readAsText(f); e.target.value = ""; };
 
   const r = useMemo(() => runEngine(i), [i]);
+  const rr = useMemo(() => runEngine(i, true), [i]);
   const M = r.matriz;
   const maxAbs = Math.max(...r.escArr.map((e) => Math.abs(e.allIn)), 1);
   const maxDeuda = Math.max(...r.flujo.map((f) => f.deudaTot), 1);
@@ -1488,10 +1526,10 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                 })()}
               </Panel>
 
-              <Panel eb="Ahorro" title="Plata acumulada según el plan">
+              <Panel eb="Ahorro" title="Plata acumulada: real + proyección">
                 {(() => {
-                  const fl = r.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo);
-                  const fT = r.flujo[anaTo] || {};
+                  const fl = rr.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo);
+                  const fT = rr.flujo[anaTo] || {};
                   return (
                     <>
                       <TChart height={200} labels={fl.map((f) => mlabel(f.m))} series={[
@@ -1512,13 +1550,13 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
 
             <Panel eb="Patrimonio neto" title={`Lo que tenés menos lo que debés, a ${mlabel(anaTo)}`}>
               {(() => {
-                const fl = r.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo);
-                const fT = r.flujo[anaTo] || {};
+                const fl = rr.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo);
+                const fT = rr.flujo[anaTo] || {};
                 const act = (fT.patrimonioAcum || 0) + (fT.reservaAcum || 0) + (fT.cobrosPend || 0), pas = (fT.deudaTot || 0) + (fT.cardCarry || 0);
                 return (
                   <div style={{ display: "grid", gap: 14 }}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-end" }}>
-                      <div><div style={{ fontSize: 13, color: P.muted }}>Patrimonio neto (plan)</div><div style={{ fontSize: 30, fontWeight: 700, color: (fT.patrimonioNeto || 0) < 0 ? P.critical : P.healthy }}>{money(fT.patrimonioNeto || 0)}</div></div>
+                      <div><div style={{ fontSize: 13, color: P.muted }}>Patrimonio neto (real + proyección)</div><div style={{ fontSize: 30, fontWeight: 700, color: (fT.patrimonioNeto || 0) < 0 ? P.critical : P.healthy }}>{money(fT.patrimonioNeto || 0)}</div></div>
                       <div style={{ fontSize: 14, color: P.muted }}>Tenés <b style={{ color: P.ink }}>{money(act)}</b> y debés <b style={{ color: P.ink }}>{money(pas)}</b></div>
                     </div>
                     <TChart height={200} labels={fl.map((f) => mlabel(f.m))} series={[{ name: "Patrimonio neto", data: fl.map((f) => f.patrimonioNeto || 0), color: P.teal, dots: true, area: true }]} />
@@ -1532,32 +1570,54 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
               })()}
             </Panel>
 
-            <Panel fold eb="Detalle" title="Flujo mes a mes (plan)" summary="La contabilidad completa de cada mes del período">
-              <div className="tblw">
-                <table className="tbl">
-                  <thead><tr><th>Mes</th><th>Ingreso</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Déficit anterior</th><th>Metas</th><th>Reserva</th><th>Ahorro</th><th>Resultado</th></tr></thead>
-                  <tbody>
-                    {r.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo).map((f) => {
-                      const lbl = f.deficit < 0 ? "déficit" : f.cubierto > 0 ? "cubierto" : f.sobrante > 0 ? "sobra" : "";
-                      const neg = (v) => (v ? "−" + money(v) : "·");
-                      return (
-                        <tr key={f.m} style={{ borderBottom: `1px solid ${P.faint}` }}>
-                          <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SCC[f.sc] }} />{mlabel(f.m)}</span></td>
-                          <td>{money(f.salario)}</td>
-                          <td>{f.cobros ? money(f.cobros) : "·"}</td>
-                          <td style={{ color: P.muted }}>{neg(f.gastos)}</td>
-                          <td style={{ color: P.muted }}>{neg(f.deuda)}</td>
-                          <td style={{ color: f.tarjeta ? P.critical : P.muted }}>{neg(f.tarjeta)}</td>
-                          <td style={{ color: P.muted }}>{neg(f.metasMes)}</td>
-                          <td>{f.reserva ? money(f.reserva) : "·"}</td>
-                          <td>{f.ahorro ? money(f.ahorro) : "·"}</td>
-                          <td style={{ fontWeight: 700, color: f.resultado < 0 ? P.critical : P.ink }}>{money(f.resultado)} <span style={{ fontSize: 11, fontWeight: 400, color: P.muted }}>{lbl}</span></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            <Panel fold open eb="Detalle" title="Flujo mes a mes: real + proyección" summary="Los meses cargados muestran lo real; los demás, lo proyectado con los arrastres">
+              {(() => {
+                const fl = rr.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo);
+                const S = (k) => fl.reduce((a, f) => a + (+f[k] || 0), 0);
+                const neg = (v) => (v ? "−" + money(v) : "·");
+                const pos = (v) => (v ? money(v) : "·");
+                return (
+                  <>
+                    <div style={{ fontSize: 13, color: P.muted, marginBottom: 10, lineHeight: 1.5 }}>
+                      <b style={{ color: P.ink }}>Resultado del mes</b> es el mismo número que ves en Cargar. A eso se le resta el déficit del mes anterior, la reserva de impuestos y el ahorro: lo que <b style={{ color: P.ink }}>queda</b> se acumula, y si da negativo pasa a tarjeta el mes siguiente.
+                    </div>
+                    <div className="tblw">
+                      <table className="tbl">
+                        <thead><tr><th>Mes</th><th>Ingreso</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Metas</th><th>Resultado del mes</th><th>Déficit anterior</th><th>Reserva</th><th>Ahorro</th><th>Queda</th></tr></thead>
+                        <tbody>
+                          {fl.map((f) => (
+                            <tr key={f.m} style={{ borderBottom: `1px solid ${P.faint}` }}>
+                              <td style={{ whiteSpace: "nowrap" }}>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                  <span style={{ width: 8, height: 8, borderRadius: 2, background: SCC[f.sc] }} />{mlabel(f.m)}
+                                  <span className="chip" style={{ padding: "1px 7px", fontSize: 11, color: f.real ? P.healthy : P.muted, background: f.real ? "var(--good-soft)" : P.faint }}>{f.real ? "Real" : "Proy."}</span>
+                                </span>
+                              </td>
+                              <td>{money(f.salario)}</td>
+                              <td>{pos(f.cobros)}</td>
+                              <td style={{ color: P.muted }}>{neg(f.gastos)}</td>
+                              <td style={{ color: P.muted }}>{neg(f.deuda)}</td>
+                              <td style={{ color: P.muted }}>{neg(f.metasMes)}</td>
+                              <td style={{ fontWeight: 600, color: f.operativo < 0 ? P.critical : P.ink }}>{money(f.operativo)}</td>
+                              <td style={{ color: f.tarjeta ? P.critical : P.muted }}>{neg(f.tarjeta)}</td>
+                              <td style={{ color: P.muted }}>{neg(f.reserva)}</td>
+                              <td style={{ color: P.muted }}>{neg(f.ahorro)}</td>
+                              <td style={{ fontWeight: 700, color: f.resultado < 0 ? P.critical : P.ink }}>{money(f.resultado)} <span style={{ fontSize: 11, fontWeight: 400, color: P.muted }}>{f.deficit < 0 ? "a tarjeta" : f.cubierto > 0 ? "cubierto" : ""}</span></td>
+                            </tr>
+                          ))}
+                          <tr style={{ borderTop: `2px solid ${P.line}`, fontWeight: 600 }}>
+                            <td>Total</td>
+                            <td>{money(S("salario"))}</td><td>{pos(S("cobros"))}</td><td>{neg(S("gastos"))}</td><td>{neg(S("deuda"))}</td><td>{neg(S("metasMes"))}</td>
+                            <td style={{ color: S("operativo") < 0 ? P.critical : P.ink }}>{money(S("operativo"))}</td>
+                            <td>{neg(S("tarjeta"))}</td><td>{neg(S("reserva"))}</td><td>{neg(S("ahorro"))}</td>
+                            <td style={{ color: S("resultado") < 0 ? P.critical : P.ink }}>{money(S("resultado"))}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()}
             </Panel>
           </div>
         )}
