@@ -530,6 +530,15 @@ function carryProv(actuals, item, listKey, key, prov, uptoM) {
   }
   return c;
 }
+function carryMeta(actuals, g, uptoM) {
+  let c = 0;
+  for (let k = 0; k < uptoM; k++) {
+    const mm = actuals && actuals[k];
+    if (mm && mm.mt && mm.mt[g.id] !== undefined) c += metaAporte(g, k) - (+mm.mt[g.id] || 0);
+    if (mm && mm.wv && mm.wv.mt && mm.wv.mt[g.id]) c = 0;
+  }
+  return c;
+}
 function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive, onlyPend }) {
   const key = kind === "d" ? "dp" : "cp";
   const listKey = kind === "d" ? "pagosProv" : "cobrosProv";
@@ -567,7 +576,7 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive, only
                 <td className="mono" style={{ color: P.muted }}>{money(projTot)}{Math.abs(carryTot) > 1 && <span style={{ color: P.caution, fontSize: 11 }}> ({carryTot > 0 ? "+" : "−"}{money(Math.abs(carryTot))} arr.)</span>}</td>
                 <td></td>
                 <td className="mono" style={{ fontWeight: 600 }}>{money(realTot)}</td>
-                <td className="mono"><RealDelta real={realTot} proj={projTot} /></td>
+                <td className="mono"><RealDelta pos real={realTot} proj={projTot} /></td>
               </tr>
               {names.map((n) => {
                 const base = projFor(n), car = carryFor(n), pr = ajuFor(n), re = +realFor(n) || 0, reg = regFor(n), match = reg && Math.abs(re - pr) < 1;
@@ -583,7 +592,7 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive, only
                     </td>
                     <td><button title="Usar lo proyectado" onClick={() => setActualProv(rm, kind, it.id, n, pr)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 12, padding: "1px 6px" }}>=</button></td>
                     <td><input className="si" style={{ width: 82 }} type="number" placeholder="—" value={reg ? realFor(n) : ""} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? null : +e.target.value)} /></td>
-                    <td className="mono">{reg ? <RealDelta real={re} proj={pr} /> : <span style={{ color: P.caution, fontSize: 11 }}>pendiente</span>}</td>
+                    <td className="mono">{reg ? <RealDelta pos real={re} proj={pr} /> : <span style={{ color: P.caution, fontSize: 11 }}>pendiente</span>}</td>
                   </tr>
                 );
               })}
@@ -594,7 +603,7 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive, only
     </table>
   );
 }
-function RealDelta({ real, proj }) { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; }
+function RealDelta({ real, proj, pos }) { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: (pos ? d < 0 : d > 0) ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; }
 function RealTabla({ rows, kind, rm, setActual, actuals, pend, onlyPend }) {
   const A = actuals && actuals[rm] ? actuals[rm] : {};
   const gk = A[kind] || {};
@@ -765,11 +774,11 @@ function Donut({ data, size = 190, thick = 30, center, sub }) {
 }
 
 const TONE = { bad: ["var(--bad-soft)", "var(--critical)"], warn: ["var(--warn-soft)", "var(--caution)"], info: ["var(--pri-soft)", "var(--teal)"], good: ["var(--good-soft)", "var(--healthy)"] };
-function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, mode = "cargar", from = 0, to, goCargar }) {
+function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, setActualMeta, setWaiveMeta, mode = "cargar", from = 0, to, goCargar }) {
   const [onlyPend, setOnlyPend] = useState(false);
   const [deuView, setDeuView] = useState("gen");
   const [cobView, setCobView] = useState("gen");
-  const [personD, setPersonD] = useState("__all__"), [personC, setPersonC] = useState("__all__");
+  const [personD, setPersonD] = useState("__all__"), [personC, setPersonC] = useState("__all__"), [personM, setPersonM] = useState("__all__");
   const A = (i.actuals && i.actuals[rm]) || {};
   const nextM = Math.min(rm + 1, H - 1);
   const scOf = (m) => (i.horizonte[m] ? i.horizonte[m].sc : "e2");
@@ -796,15 +805,18 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   };
   const dRows = provRows(i.deudas, "pagosProv", "dp", rm);
   const cRows = provRows(i.porCobrar, "cobrosProv", "cp", rm);
+  const metaRowsM = (m) => { const mm = (i.actuals && i.actuals[m]) || {}; return i.metas.map((g) => { const base = metaAporte(g, m), carry = carryMeta(i.actuals, g, m), aju = Math.max(0, base + carry), reg = !!(mm.mt && mm.mt[g.id] !== undefined), waived = !!(mm.wv && mm.wv.mt && mm.wv.mt[g.id]); return { g, n: g.n, base, carry, aju, reg, waived, real: reg ? +mm.mt[g.id] || 0 : null }; }).filter((r) => r.aju > 0 || r.reg || Math.abs(r.carry) > 1); };
+  const mRows = metaRowsM(rm);
   const gRows = i.gastosItems.map((g) => { const reg = !!(A.g && A.g[g.id] !== undefined); return { id: g.id, n: g.n, proj: +g.m || 0, reg, real: reg ? +A.g[g.id] || 0 : +g.m || 0 }; });
   const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
   // Lo pendiente cuenta al valor del plan, en todos los rubros por igual
   const pG = sum(gRows, (r) => r.proj), eG = sum(gRows, (r) => r.real);
   const pD = sum(dRows, (r) => r.aju), eD = sum(dRows, (r) => (r.reg ? r.real : r.aju));
   const pC = sum(cRows, (r) => r.aju), eC = sum(cRows, (r) => (r.reg ? r.real : r.aju));
-  const projRes = projIng + pC - pG - pD, estRes = realIng + eC - eG - eD;
-  const total = 1 + gRows.length + dRows.length + cRows.length;
-  const done = (ingReg ? 1 : 0) + gRows.filter((r) => r.reg).length + dRows.filter((r) => r.reg).length + cRows.filter((r) => r.reg).length;
+  const pM = sum(mRows, (r) => r.aju), eM = sum(mRows, (r) => (r.reg ? r.real : r.aju));
+  const projRes = projIng + pC - pG - pD - pM, estRes = realIng + eC - eG - eD - eM;
+  const total = 1 + gRows.length + dRows.length + cRows.length + mRows.length;
+  const done = (ingReg ? 1 : 0) + gRows.filter((r) => r.reg).length + dRows.filter((r) => r.reg).length + cRows.filter((r) => r.reg).length + mRows.filter((r) => r.reg).length;
   const pend = total - done, pctDone = Math.round((done / total) * 100);
 
   // Avisos en lenguaje claro, con nombre propio
@@ -821,15 +833,20 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   shortC.slice(0, 3).forEach((r) => ins.push({ k: "warn", t: `${r.n} no te pagó ${money(r.aju - r.real)} (${r.item.n}). Lo esperás en ${mlabel(nextM)}.` }));
   cRows.filter((r) => r.reg && r.real > r.aju + 1).slice(0, 2).forEach((r) => ins.push({ k: "good", t: `${r.n} te pagó ${money(r.real - r.aju)} más de lo previsto.` }));
   gRows.filter((r) => r.reg && r.real > r.proj + 1).sort((a, b) => (b.real - b.proj) - (a.real - a.proj)).slice(0, 2).forEach((r) => ins.push({ k: "warn", t: `Gastaste ${money(r.real - r.proj)} más de lo previsto en ${r.n}.` }));
+  const shortM = mRows.filter((r) => r.reg && !r.waived && r.real < r.aju - 1);
+  shortM.forEach((r) => ins.push({ k: "warn", t: `Apartaste ${money(r.aju - r.real)} menos de lo previsto para ${r.n}. Se suma a ${mlabel(nextM)} para llegar a tiempo.` }));
+  mRows.filter((r) => r.reg && r.real > r.aju + 1).forEach((r) => ins.push({ k: "good", t: `Apartaste ${money(r.real - r.aju)} de más para ${r.n}: el mes que viene te toca menos.` }));
+  mRows.filter((r) => r.reg && r.waived && r.real < r.aju - 1).forEach((r) => ins.push({ k: "info", t: `Cerraste el saldo de ${r.n}: los ${money(r.aju - r.real)} que faltaban no pasan a ${mlabel(nextM)}.` }));
   const ahorroG = sum(gRows.filter((r) => r.reg && r.real < r.proj - 1), (r) => r.proj - r.real);
   if (ahorroG > 1) ins.push({ k: "good", t: `Gastaste ${money(ahorroG)} menos de lo previsto en otras partidas.` });
-  if (estRes > projRes + 1 && shortD.length) ins.push({ k: "info", t: "Tu caja quedó arriba del plan, pero porque postergaste pagos: no es ahorro real." });
+  if (estRes > projRes + 1 && (shortD.length || shortM.length)) ins.push({ k: "info", t: "Tu caja quedó arriba del plan, pero porque postergaste pagos o aportes: no es ahorro real." });
   if (!ins.length) ins.push(done ? { k: "good", t: "Todo lo que cargaste coincide con el plan." } : { k: "info", t: `Todavía no cargaste nada de ${mlabel(rm)}.` });
 
   const kpi = (label, r, p, pos) => { const d = r - p, flat = Math.abs(d) < 1, good = pos ? d >= 0 : d <= 0; return { label, r, p, d, flat, col: flat ? P.muted : good ? P.healthy : P.critical, bg: flat ? P.faint : good ? "var(--good-soft)" : "var(--bad-soft)" }; };
-  const kpis = [kpi("Ingreso", realIng, projIng, true), kpi("Gastos", eG, pG, false), kpi("Deuda pagada", eD, pD, true), kpi("Cobros", eC, pC, true)];
+  const kpis = [kpi("Ingreso", realIng, projIng, true), kpi("Gastos", eG, pG, false), kpi("Deuda pagada", eD, pD, true), kpi("Cobros", eC, pC, true), ...(mRows.length ? [kpi("Aportes a metas", eM, pM, true)] : [])];
   const nextD = rm < H - 1 ? provRows(i.deudas, "pagosProv", "dp", nextM).filter((r) => r.aju > 0).sort((a, b) => (b.carry > 1) - (a.carry > 1) || b.aju - a.aju) : [];
   const nextC = rm < H - 1 ? provRows(i.porCobrar, "cobrosProv", "cp", nextM).filter((r) => r.aju > 0).sort((a, b) => (b.carry > 1) - (a.carry > 1) || b.aju - a.aju) : [];
+  const nextMt = rm < H - 1 ? metaRowsM(nextM).filter((r) => r.aju > 0) : [];
   const debtTot = sum(i.deudas, (d) => +d.saldo || 0);
   let debtPaid = 0; Object.keys(i.actuals || {}).forEach((m) => i.deudas.forEach((d) => { debtPaid += realDebt(m, d.id); }));
 
@@ -901,6 +918,17 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
       {nextD.length > 6 && <span style={{ fontSize: 12, color: P.muted }}>y {nextD.length - 6} más…</span>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 12 }}><span style={{ fontSize: 13, fontWeight: 600, color: P.muted }}>Cobros esperados</span><b style={{ fontSize: 15 }}>{money(sum(nextC, (r) => r.aju))}</b></div>
       {nextC.length ? nextList(nextC.slice(0, 6), "cobró") : <span style={{ fontSize: 13, color: P.muted }}>Sin cobros programados.</span>}
+      {nextMt.length > 0 && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 12 }}><span style={{ fontSize: 13, fontWeight: 600, color: P.muted }}>Aportes a metas</span><b style={{ fontSize: 15 }}>{money(sum(nextMt, (r) => r.aju))}</b></div>
+          {nextMt.map((r) => (
+            <div key={r.g.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `1px solid ${P.faint}` }}>
+              <span style={{ display: "grid", gap: 1 }}><span style={{ fontSize: 14, fontWeight: 500 }}>{r.n}</span><span style={{ fontSize: 12, color: r.carry > 1 ? P.caution : P.muted }}>{r.carry > 1 ? `Incluye ${money(r.carry)} que no apartaste en ${mlabel(rm)}` : "Programado"}</span></span>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>{money(r.aju)}</span>
+            </div>
+          ))}
+        </>
+      )}
     </section>
   );
   const debtBlock = debtTot > 0 && (
@@ -932,9 +960,9 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
     const idx = []; for (let m = from; m <= tTo; m++) idx.push(m);
     const labels = idx.map(mlabel);
     const gTot = sum(i.gastosItems, (g) => +g.m || 0);
-    const hasReal = (m) => { const mm = i.actuals && i.actuals[m]; return !!(mm && (mm.ingreso != null || ["g", "d", "c", "dp", "cp"].some((k) => mm[k] && Object.keys(mm[k]).length))); };
-    const projResMes = (m) => (+i.ingreso[scOf(m)] || 0) + sum(i.porCobrar, (c) => (c.cobros || [])[m] || 0) - gTot - sum(i.deudas, (d) => (d.pagos || [])[m] || 0);
-    const realResMes = (m) => { const mm = (i.actuals && i.actuals[m]) || {}; const ing = mm.ingreso != null ? +mm.ingreso : (+i.ingreso[scOf(m)] || 0); const gas = sum(i.gastosItems, (g) => (mm.g && mm.g[g.id] !== undefined ? +mm.g[g.id] : +g.m || 0)); return ing + sum(i.porCobrar, (c) => realCob(m, c.id)) - gas - sum(i.deudas, (d) => realDebt(m, d.id)); };
+    const hasReal = (m) => { const mm = i.actuals && i.actuals[m]; return !!(mm && (mm.ingreso != null || ["g", "d", "c", "dp", "cp", "mt"].some((k) => mm[k] && Object.keys(mm[k]).length))); };
+    const projResMes = (m) => (+i.ingreso[scOf(m)] || 0) + sum(i.porCobrar, (c) => (c.cobros || [])[m] || 0) - gTot - sum(i.deudas, (d) => (d.pagos || [])[m] || 0) - sum(i.metas, (g) => metaAporte(g, m));
+    const realResMes = (m) => { const mm = (i.actuals && i.actuals[m]) || {}; const ing = mm.ingreso != null ? +mm.ingreso : (+i.ingreso[scOf(m)] || 0); const gas = sum(i.gastosItems, (g) => (mm.g && mm.g[g.id] !== undefined ? +mm.g[g.id] : +g.m || 0)); return ing + sum(i.porCobrar, (c) => realCob(m, c.id)) - gas - sum(i.deudas, (d) => realDebt(m, d.id)) - sum(i.metas, (g) => (mm.mt && +mm.mt[g.id]) || 0); };
     const cargados = idx.filter(hasReal);
     const lastReal = cargados.length ? cargados[cargados.length - 1] : null;
     const resReal = sum(cargados, realResMes), resPlan = sum(cargados, projResMes);
@@ -978,7 +1006,11 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
         </Panel>
       );
     };
-    const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= tTo; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
+    const realMeta = (m, id) => { const mm = i.actuals && i.actuals[m]; return (mm && mm.mt && +mm.mt[id]) || 0; };
+    const metaReal = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= tTo; k++) acum += realMeta(k, g.id); return { n: g.n, a: +g.monto || 0, b: acum }; });
+    const selMetas = personM === "__all__" ? i.metas : i.metas.filter((g) => String(g.id) === personM);
+    const planAcum = (m) => sum(selMetas, (g) => { let s2 = 0; for (let k = 0; k <= m; k++) s2 += metaAporte(g, k); return s2; });
+    const realAcum = (m) => sum(selMetas, (g) => { let s2 = 0; for (let k = 0; k <= m; k++) s2 += realMeta(k, g.id); return s2; });
     return (
       <>
         {cargados.length === 0
@@ -1016,10 +1048,19 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
           {personBlock("Pagos por acreedor", "A quién le pagás en el período", aggProv(i.deudas, "pagosProv", from, tTo), i.deudas, "dp", personD, setPersonD, P.critical, "Todos los acreedores")}
           {personBlock("Cobros por pagador", "Quién te paga en el período", aggProv(i.porCobrar, "cobrosProv", from, tTo), i.porCobrar, "cp", personC, setPersonC, P.healthy, "Todos los pagadores")}
         </div>
-        {metaRows.length > 0 && (
-          <Panel eb="Metas" title={`Avance a ${mlabel(tTo)}`}>
-            <ProgressList groups={[{ label: "", rows: metaRows }]} color={P.teal} lblA="La meta" lblB="Lo acumulado" />
-          </Panel>
+        {i.metas.length > 0 && (
+          <div className="g2">
+            <Panel eb="Metas" title={`Cuánto llevás apartado a ${mlabel(tTo)}`}>
+              <ProgressList groups={[{ label: "", rows: metaReal }]} color={P.teal} lblA="La meta" lblB="Lo apartado de verdad" />
+            </Panel>
+            <Panel eb="Metas" title="Ahorro para metas: plan vs real" right={
+              <select className="sel" aria-label="Elegir meta" value={personM} onChange={(e) => setPersonM(e.target.value)}>
+                <option value="__all__">Todas las metas</option>
+                {i.metas.map((g) => <option key={g.id} value={String(g.id)}>{g.n}</option>)}
+              </select>}>
+              <TChart height={200} labels={labels} series={[{ name: "Plan acumulado", data: idx.map(planAcum), color: P.muted, dashed: true }, { name: "Real acumulado", data: idx.map((m) => (lastReal !== null && m <= lastReal ? realAcum(m) : null)), color: P.teal, dots: true, area: true }]} />
+            </Panel>
+          </div>
         )}
       </>
     );
@@ -1053,7 +1094,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
                 <td className="mono" style={{ color: P.muted }}>{money(projIng)}</td>
                 <td><button title="Usar lo proyectado" onClick={() => setActualIng(rm, projIng)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 6, fontSize: 13, padding: "4px 9px" }}>=</button></td>
                 <td><input className="si" style={{ width: 104 }} type="number" placeholder="—" value={ingReg ? A.ingreso : ""} onChange={(e) => setActualIng(rm, e.target.value === "" ? null : +e.target.value)} /></td>
-                <td className="mono">{ingReg ? <RealDelta real={realIng} proj={projIng} /> : <span style={{ color: P.caution, fontSize: 12 }}>pendiente</span>}</td>
+                <td className="mono">{ingReg ? <RealDelta pos real={realIng} proj={projIng} /> : <span style={{ color: P.caution, fontSize: 12 }}>pendiente</span>}</td>
               </tr>
             </tbody></table></div>
           </Panel>
@@ -1069,6 +1110,31 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
           {cRows.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Sin cobros programados este mes.</div>}
           <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>Lo que no te pagaron en meses ya cargados se suma acá. Si se acordó cobrar menos, usá <b>cerrar saldo</b>.</div>
         </Panel>
+        {i.metas.length > 0 && (
+          <Panel eb="Metas" title="Aportes a metas">
+            {mRows.filter((r) => !(onlyPend && r.reg)).length > 0 ? (
+              <div className="tblw"><table className="tbl"><thead><tr><th>Meta</th><th>Plan</th><th></th><th>Real</th><th>Δ</th></tr></thead><tbody>
+                {mRows.filter((r) => !(onlyPend && r.reg)).map((r) => {
+                  const match = r.reg && Math.abs(r.real - r.aju) < 1, short = r.reg ? r.aju - r.real : 0;
+                  return (
+                    <tr key={r.g.id} style={{ borderBottom: `1px solid ${P.faint}`, background: r.reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)" }}>
+                      <td>{r.reg ? (match ? "✓ " : "• ") : "○ "}{r.n}
+                        <div style={{ fontSize: 12, color: P.muted }}>Objetivo {money(+r.g.monto || 0)} para {mlabel(r.g.mesObjetivo)}</div>
+                        {r.reg && short > 1 && !r.waived && <button title="Decidí no completar este aporte: no pasarlo al mes siguiente" onClick={() => setWaiveMeta(rm, r.g.id, true)} style={{ marginTop: 4, cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.caution, borderRadius: 6, fontSize: 11, padding: "2px 7px" }}>cerrar saldo</button>}
+                        {r.waived && <span style={{ fontSize: 11, color: P.healthy }}> saldo cerrado <button onClick={() => setWaiveMeta(rm, r.g.id, false)} style={{ cursor: "pointer", border: "none", background: "transparent", color: P.muted, fontSize: 11, textDecoration: "underline" }}>deshacer</button></span>}
+                      </td>
+                      <td className="mono" style={{ color: P.muted }}>{money(r.aju)}{Math.abs(r.carry) > 1 && <div style={{ fontSize: 11, color: P.caution }}>{money(r.base)} prog. {r.carry > 0 ? "+" : "−"} {money(Math.abs(r.carry))} arr.</div>}</td>
+                      <td><button title="Aparté lo previsto" onClick={() => setActualMeta(rm, r.g.id, r.aju)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 6, fontSize: 13, padding: "4px 9px" }}>=</button></td>
+                      <td><input className="si" style={{ width: 104 }} type="number" placeholder="—" aria-label={`Aporte real a ${r.n}`} value={r.reg ? r.real : ""} onChange={(e) => setActualMeta(rm, r.g.id, e.target.value === "" ? null : +e.target.value)} /></td>
+                      <td className="mono">{r.reg ? <RealDelta pos real={r.real} proj={r.aju} /> : <span style={{ color: P.caution, fontSize: 12 }}>pendiente</span>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody></table></div>
+            ) : <div style={{ fontSize: 13, color: P.muted }}>{onlyPend ? "No quedan aportes pendientes." : "Sin aportes programados este mes."}</div>}
+            <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>Registrá lo que realmente apartaste para cada meta. Lo que falte se suma al mes siguiente; si decidiste no completarlo, usá <b>cerrar saldo</b>.</div>
+          </Panel>
+        )}
         {pend === 0 && <div style={{ background: "var(--good-soft)", color: P.healthy, borderRadius: 14, padding: 16, fontSize: 15, fontWeight: 600, textAlign: "center" }}>{mlabel(rm)} está completo. No te olvides de Guardar.</div>}
       </div>
       <div className="gcol">{resultCard}{kpiGrid}{insightsBlock}</div>
@@ -1097,6 +1163,8 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const setActualIng = (m, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur.ingreso = val; acts[m] = cur; return { ...x, actuals: acts }; });
   const setActualProv = (m, kind, itemId, prov, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, dp: {}, cp: {}, ...(acts[m] || {}) }; const key = kind === "d" ? "dp" : "cp"; const grp = { ...(cur[key] || {}) }; const it = { ...(grp[itemId] || {}) }; if (val === null) delete it[prov]; else it[prov] = val; grp[itemId] = it; cur[key] = grp; acts[m] = cur; return { ...x, actuals: acts }; });
   const setWaive = (m, kind, itemId, prov, on) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { ...(acts[m] || {}) }; const wv = { ...(cur.wv || {}) }; const kk = kind === "d" ? "dp" : "cp"; const grp = { ...(wv[kk] || {}) }; const it = { ...(grp[itemId] || {}) }; if (on) it[prov] = true; else delete it[prov]; grp[itemId] = it; wv[kk] = grp; cur.wv = wv; acts[m] = cur; return { ...x, actuals: acts }; });
+  const setActualMeta = (m, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { ...(acts[m] || {}) }; const grp = { ...(cur.mt || {}) }; if (val === null) delete grp[id]; else grp[id] = val; cur.mt = grp; acts[m] = cur; return { ...x, actuals: acts }; });
+  const setWaiveMeta = (m, id, on) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { ...(acts[m] || {}) }; const wv = { ...(cur.wv || {}) }; const grp = { ...(wv.mt || {}) }; if (on) grp[id] = true; else delete grp[id]; wv.mt = grp; cur.wv = wv; acts[m] = cur; return { ...x, actuals: acts }; });
   const [newCat, setNewCat] = useState("");
 
   const updInp = (fn) => setProfiles((ps) => ps.map((p) => (p.id === activeId ? { ...p, inp: fn(p.inp) } : p)));
@@ -1166,7 +1234,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const deuTotAtMes = r.flujo[deuMes]?.deudaTot || 0;
   const deuPagTot = r.flujo[deuMes]?.deudaPagAcum || 0;
 
-  const rvProps = { i, rm, setRm, setActual, setActualIng, setActualProv, setWaive };
+  const rvProps = { i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, setActualMeta, setWaiveMeta };
   return (
     <div className={"app" + (theme === "dark" ? " dark" : "")} style={{ background: P.paper, color: P.ink }} onFocus={(e) => { if (e.target.tagName === "INPUT" && e.target.type === "number") e.target.select(); }}>
       <style>{CSS}</style>
