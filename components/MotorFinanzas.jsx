@@ -44,7 +44,7 @@ function normProv(prov, tot, lbl) {
   const out = [];
   for (let m = 0; m < H; m++) {
     if (Array.isArray(prov) && Array.isArray(prov[m]) && prov[m].length) {
-      out.push(prov[m].map((p) => ({ id: typeof p.id === "number" ? p.id : uid(), prov: p.prov || (lbl + " 1"), monto: +p.monto || 0 })));
+      out.push(prov[m].map((p) => ({ id: typeof p.id === "number" ? p.id : uid(), prov: (p.prov || "").trim() || (lbl + " 1"), monto: +p.monto || 0 })));
     } else {
       const v = (tot && tot[m]) || 0;
       out.push(v > 0 ? [{ id: uid(), prov: lbl + " 1", monto: v }] : []);
@@ -56,8 +56,8 @@ const pad = (a) => { const b = a.slice(0, H); while (b.length < H) b.push(0); re
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
-.app{--paper:#F2F4F7;--panel:#FFFFFF;--ink:#0E1A2B;--muted:#556273;--line:#DCE2E9;--faint:#EEF2F6;--teal:#1D4B7A;--healthy:#17704D;--caution:#9A6206;--critical:#A63A2D;--blue:#3E6FA8;--gold:#B08A3E;--softgreen:#7FB8A0;--dash:#B5C0CC;--good-soft:#E1F2EA;--warn-soft:#FBF0DC;--bad-soft:#F8E5E2;--pri-soft:#E3ECF6;--s1:#6F87A1;--s2:#4C7BA8;--s3:#2B5C8C;--s4:#0F3460;min-height:100vh;width:100%;font-family:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease}
-.app.dark{--paper:#0E141B;--panel:#16202B;--ink:#E6ECF2;--muted:#9AA9B8;--line:#2A3646;--faint:#1C2733;--teal:#3F7CC0;--healthy:#4FB487;--caution:#D6A04A;--critical:#E07A66;--blue:#6BA0DE;--gold:#C9A55A;--softgreen:#5AA588;--dash:#3A4757;--good-soft:#16302A;--warn-soft:#33290F;--bad-soft:#3A1F1B;--pri-soft:#1B2E44;--s1:#8FA3B9;--s2:#6E9BC8;--s3:#5A8FCB;--s4:#3B78BC}
+.app{--paper:#F2F4F7;--panel:#FFFFFF;--ink:#0E1A2B;--muted:#556273;--line:#DCE2E9;--faint:#EEF2F6;--teal:#1D4B7A;--healthy:#17704D;--caution:#9A6206;--critical:#A63A2D;--blue:#3E6FA8;--gold:#B08A3E;--softgreen:#7FB8A0;--dash:#B5C0CC;--good-soft:#E1F2EA;--warn-soft:#FBF0DC;--bad-soft:#F8E5E2;--pri-soft:#E3ECF6;--s1:#B7C6D6;--s2:#7C9BBC;--s3:#1D4B7A;--s4:#0B2A4A;min-height:100vh;width:100%;font-family:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif;font-size:14px;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease}
+.app.dark{--paper:#0E141B;--panel:#16202B;--ink:#E6ECF2;--muted:#9AA9B8;--line:#2A3646;--faint:#1C2733;--teal:#3F7CC0;--healthy:#4FB487;--caution:#D6A04A;--critical:#E07A66;--blue:#6BA0DE;--gold:#C9A55A;--softgreen:#5AA588;--dash:#3A4757;--good-soft:#16302A;--warn-soft:#33290F;--bad-soft:#3A1F1B;--pri-soft:#1B2E44;--s1:#2E4157;--s2:#4A6E94;--s3:#3F7CC0;--s4:#9CC3EC}
 .wrap{max-width:1200px;margin:0 auto;padding:20px 20px 40px}
 .mono{font-variant-numeric:tabular-nums}
 .gcol{display:grid;gap:16px;min-width:0;align-content:start}
@@ -102,7 +102,12 @@ input:focus,select:focus{box-shadow:0 0 0 3px var(--pri-soft);border-color:var(-
 .iconbtn{cursor:pointer;font-family:inherit;width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:18px;line-height:1}
 .foldh{width:100%;display:flex;align-items:center;gap:12px;padding:16px 20px;border:none;background:transparent;cursor:pointer;text-align:left;color:var(--ink);font-family:inherit}
 .chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 9px;border-radius:12px}
-@media(max-width:900px){.split,.split2{grid-template-columns:1fr}.cards4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+.plist .nam{border-bottom:1px solid transparent}.plist .nam:hover{border-bottom-color:var(--line)}.plist .nam:focus{border-bottom-color:var(--teal)}
+.plist .num{background:transparent;border-color:transparent}.plist .num:hover{border-color:var(--line)}.plist .num:focus{background:var(--panel);border-color:var(--teal)}
+.plist .sel{background:transparent;border-color:transparent;color:var(--muted);height:30px;padding:0 4px;font-size:12px}.plist .sel:hover{border-color:var(--line)}
+.sticky{position:sticky;top:8px;z-index:25;box-shadow:0 6px 18px rgba(14,26,43,.08)}
+.kpis4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media(max-width:900px){.kpis4{grid-template-columns:repeat(2,minmax(0,1fr))}.split,.split2{grid-template-columns:1fr}.cards4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
 @media(max-width:700px){.wrap{padding:14px 12px 104px}.bigname{font-size:24px}.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;margin:0;background:var(--panel);border-top:1px solid var(--line);border-bottom:none;padding:4px 4px calc(10px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(4,1fr)}.tab{flex-direction:column;gap:3px;font-size:11px;padding:6px 2px;min-height:54px;border-bottom:none;margin:0}.tab.on{border-bottom:none}.menu{width:min(300px,calc(100vw - 24px))}.panel{padding:16px}.top{align-items:flex-start}}
 `;
 
@@ -157,7 +162,18 @@ function normInp(inp) {
   x.deudas = (inp.deudas || []).map((d) => { const base = { id: typeof d.id === "number" ? d.id : uid(), n: "", saldo: 0, tasa: 0, tipo: "personal", ambito: "personal", cat: "DEUDAS", ...d, pagos: pad((d.pagos || []).map(Number)) }; const pp = normProv(base.pagosProv, base.pagos, "Proveedor"); return { ...base, pagosProv: pp, pagos: pad(pp.map((mo) => mo.reduce((a, p) => a + (+p.monto || 0), 0))) }; });
   x.porCobrar = (inp.porCobrar || []).map((c) => { const base = { id: typeof c.id === "number" ? c.id : uid(), n: "", monto: 0, ambito: "personal", cat: "INVERSIONES", ...c, cobros: pad((c.cobros || []).map(Number)) }; const cp = normProv(base.cobrosProv, base.cobros, "Pagador"); return { ...base, cobrosProv: cp, cobros: pad(cp.map((mo) => mo.reduce((a, p) => a + (+p.monto || 0), 0))) }; });
   x.metas = (inp.metas || []).map((g) => ({ id: typeof g.id === "number" ? g.id : uid(), n: "", monto: 0, mesInicio: 0, mesObjetivo: 11, modo: "auto", mesesOff: {}, ...g }));
-  x.actuals = inp.actuals && typeof inp.actuals === "object" ? inp.actuals : {};
+  x.actuals = inp.actuals && typeof inp.actuals === "object" ? JSON.parse(JSON.stringify(inp.actuals)) : {};
+  const migr = (items, listKey, oldK, newK, lbl) => Object.keys(x.actuals).forEach((m) => {
+    const mm = x.actuals[m]; if (!mm || !mm[oldK]) return;
+    Object.keys(mm[oldK]).forEach((id) => {
+      if (mm[newK] && mm[newK][id]) return;
+      const it = items.find((q) => String(q.id) === String(id)); if (!it) return;
+      const monthList = (it[listKey] || [])[m] || [], allP = (it[listKey] || []).flat().filter(Boolean);
+      const name = (monthList[0] && monthList[0].prov) || (allP[0] && allP[0].prov) || lbl + " 1";
+      mm[newK] = { ...(mm[newK] || {}), [id]: { [name]: +mm[oldK][id] || 0 } };
+    });
+  });
+  migr(x.deudas, "pagosProv", "d", "dp", "Proveedor"); migr(x.porCobrar, "cobrosProv", "c", "cp", "Pagador");
   x.fechaProy = inp.fechaProy || hoy();
   x.horizonte = (Array.isArray(inp.horizonte) && inp.horizonte.length) ? padH(inp.horizonte) : blankInp().horizonte;
   return x;
@@ -413,37 +429,51 @@ function ProvChart({ agg, sel, color }) {
 
 function SchedProv({ item, arr, saldo, allNames, provAdd, provDel, provEdit }) {
   const k = provKeys[arr];
-  const [open, setOpen] = useState(false);
-  const [sel, setSel] = useState(0);
+  const [sel, setSel] = useState(null);
+  const [all, setAll] = useState(false);
   const list = item[k.list] || [];
   const tot = item[k.tot] || [];
   const prog = tot.reduce((a, x) => a + (+x || 0), 0);
   const provNames = Array.from(new Set([...(allNames || []), ...list.flat().map((p) => p && p.prov)].filter(Boolean)));
-  const monthProvs = list[sel] || [];
+  const monthProvs = sel === null ? [] : list[sel] || [];
   const monthTot = monthProvs.reduce((a, p) => a + (+p.monto || 0), 0);
+  const lastUsed = tot.reduce((a, v, m) => (v > 0 ? m : a), -1);
+  const shown = all ? H : Math.min(H, Math.max(12, Math.ceil((lastUsed + 1) / 6) * 6));
+  const off = Math.abs(prog - saldo) > 1;
   return (
-    <div style={{ marginTop: 4 }}>
-      <button className="btn" style={{ fontSize: 12, padding: "3px 7px" }} onClick={() => setOpen((o) => !o)}>{open ? "▾" : "▸"} cronograma · <span className="mono" style={{ color: Math.abs(prog - saldo) > 1 ? P.caution : P.teal }}>{money(prog)}{saldo ? ` / ${money(saldo)}` : ""}</span></button>
-      {open && (
-        <div style={{ marginTop: 6, padding: 8, background: P.faint, borderRadius: 6 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 3, marginBottom: 8 }}>
-            {tot.map((v, m) => (
-              <button key={m} onClick={() => setSel(m)} style={{ cursor: "pointer", border: `1px solid ${m === sel ? P.teal : P.line}`, background: m === sel ? P.teal : P.panel, color: m === sel ? "#fff" : (v > 0 ? P.ink : P.muted), borderRadius: 4, padding: "3px 1px", fontSize: 9, lineHeight: 1.3 }}>
-                {mlabel(m)}<br /><span className="mono">{v ? money(v) : "·"}</span>
-              </button>
-            ))}
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+        <span style={{ fontSize: 12, color: P.muted }}>Cronograma · tocá un mes para ver o editar el detalle</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: off ? P.caution : P.healthy }}>Programado {money(prog)}{saldo ? ` de ${money(saldo)}` : ""}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 6 }}>
+        {tot.slice(0, shown).map((v, m) => {
+          const on = m === sel;
+          return (
+            <button key={m} onClick={() => setSel(on ? null : m)} aria-pressed={on} style={{ cursor: "pointer", fontFamily: "inherit", border: `1px solid ${on ? P.teal : "transparent"}`, borderRadius: 8, padding: "6px 2px", display: "grid", gap: 1, justifyItems: "center", background: on ? P.teal : v > 0 ? "var(--pri-soft)" : P.faint, color: on ? "#fff" : P.ink }}>
+              <span style={{ fontSize: 11, color: on ? "#fff" : P.muted }}>{mlabel(m)}</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{v ? kfmt(v) : "—"}</span>
+            </button>
+          );
+        })}
+      </div>
+      {shown < H && <button className="btn" style={{ marginTop: 6, fontSize: 12, minHeight: 30, padding: "4px 10px" }} onClick={() => setAll(true)}>Ver los {H} meses</button>}
+      {sel !== null && (
+        <div style={{ marginTop: 8, padding: 12, background: P.faint, borderRadius: 10, display: "grid", gap: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{mlabel(sel)} · total <span style={{ color: P.teal }}>{money(monthTot)}</span></span>
+            <button className="x" aria-label="Cerrar detalle" onClick={() => setSel(null)}>×</button>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{mlabel(sel)} · total <span className="mono" style={{ color: P.teal }}>{money(monthTot)}</span></div>
           <datalist id={`prov-${arr}-${item.id}`}>{provNames.map((n) => <option key={n} value={n} />)}</datalist>
           {monthProvs.map((p) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
-              <input list={`prov-${arr}-${item.id}`} value={p.prov} placeholder={k.lbl} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} style={{ flex: 1, minWidth: 0, fontSize: 13, padding: "3px 6px", border: `1px solid ${P.line}`, borderRadius: 4, background: P.panel }} />
-              <span className="mono" style={{ fontSize: 13, color: P.muted }}>$<input className="si" style={{ width: 72 }} type="number" value={p.monto} onChange={(e) => provEdit(arr, item.id, sel, p.id, { monto: +e.target.value || 0 })} /></span>
-              <button className="x" onClick={() => provDel(arr, item.id, sel, p.id)}>×</button>
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input list={`prov-${arr}-${item.id}`} value={p.prov} placeholder={k.lbl} aria-label={k.lbl} onChange={(e) => provEdit(arr, item.id, sel, p.id, { prov: e.target.value })} onBlur={(e) => { const t = e.target.value.trim(); if (t !== e.target.value) provEdit(arr, item.id, sel, p.id, { prov: t }); }} style={{ flex: 1, minWidth: 0, height: 38, padding: "0 10px", background: P.panel }} />
+              <input className="si" style={{ width: 110 }} type="number" aria-label="Monto" value={p.monto} onChange={(e) => provEdit(arr, item.id, sel, p.id, { monto: +e.target.value || 0 })} />
+              <button className="x" aria-label="Quitar" onClick={() => provDel(arr, item.id, sel, p.id)}>×</button>
             </div>
           ))}
-          {monthProvs.length === 0 && <div style={{ fontSize: 12, color: P.muted, marginBottom: 4 }}>Sin desglose este mes.</div>}
-          <button className="btn" style={{ fontSize: 12 }} onClick={() => provAdd(arr, item.id, sel)}>+ {k.lbl.toLowerCase()}</button>
+          {monthProvs.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Nada programado este mes.</div>}
+          <button className="btn" style={{ justifySelf: "start" }} onClick={() => provAdd(arr, item.id, sel)}>+ {k.lbl.toLowerCase()}</button>
         </div>
       )}
     </div>
@@ -642,11 +672,104 @@ function RealToggle({ v, set }) {
     </span>
   );
 }
+const kfmt = (n) => { const a = Math.abs(n); const s = a >= 1e6 ? (a / 1e6).toFixed(1) + "M" : a >= 1e4 ? Math.round(a / 1e3) + "k" : a >= 1e3 ? (a / 1e3).toFixed(1).replace(/\.0$/, "") + "k" : String(Math.round(a)); return (n < 0 ? "−" : "") + "$" + s; };
+// ── Lenguaje visual único de los gráficos: línea (plan punteado, real sólido), progreso horizontal, dona ──
+function TChart({ labels, series, height = 230 }) {
+  const W = 760, Hh = height, pl = 58, pr = 14, pt = 12, pb = 28;
+  const vals = series.flatMap((s) => s.data.filter((v) => v !== null && v !== undefined && !isNaN(v)));
+  if (!labels.length || !vals.length) return <div style={{ fontSize: 13, color: P.muted }}>Sin datos para este período.</div>;
+  let mx = Math.max(...vals, 0), mn = Math.min(...vals, 0);
+  if (mx === mn) mx += 1;
+  const padv = (mx - mn) * 0.08; mx += padv; if (mn < 0) mn -= padv;
+  const n = labels.length;
+  const X = (k) => pl + (n === 1 ? (W - pl - pr) / 2 : (k * (W - pl - pr)) / (n - 1));
+  const Y = (v) => pt + (1 - (v - mn) / (mx - mn)) * (Hh - pt - pb);
+  const ticks = [0, 1, 2, 3, 4].map((t) => mn + ((mx - mn) * t) / 4);
+  const step = Math.max(1, Math.ceil(n / 8));
+  const segs = (data) => { const out = []; let cur = []; data.forEach((v, k) => { if (v === null || v === undefined) { if (cur.length) out.push(cur); cur = []; } else cur.push([X(k), Y(v)]); }); if (cur.length) out.push(cur); return out; };
+  const base = Y(Math.max(mn, 0));
+  return (
+    <div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12, color: P.muted, marginBottom: 6 }}>
+        {series.map((s) => (
+          <span key={s.name} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <svg width="20" height="8" aria-hidden="true"><line x1="0" y1="4" x2="20" y2="4" stroke={s.color} strokeWidth={s.width || 2.5} strokeDasharray={s.dashed ? "4 3" : undefined} /></svg>{s.name}
+          </span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${W} ${Hh}`} width="100%" role="img" aria-label={series.map((s) => s.name).join(" vs ")} style={{ display: "block" }}>
+        {ticks.map((t, k) => (
+          <g key={k}>
+            <line x1={pl} x2={W - pr} y1={Y(t)} y2={Y(t)} stroke="var(--line)" strokeWidth="1" strokeDasharray="2 4" />
+            <text x={pl - 8} y={Y(t) + 4} textAnchor="end" fontSize="11" fill="var(--muted)">{kfmt(t)}</text>
+          </g>
+        ))}
+        {mn < 0 && mx > 0 && <line x1={pl} x2={W - pr} y1={Y(0)} y2={Y(0)} stroke="var(--muted)" strokeWidth="1" />}
+        {series.filter((s) => s.area).map((s, k) => segs(s.data).map((sg, j) => (
+          <path key={`a${k}-${j}`} d={`M${sg[0][0]},${base} ${sg.map((p) => `L${p[0]},${p[1]}`).join(" ")} L${sg[sg.length - 1][0]},${base} Z`} fill={s.color} opacity="0.10" />
+        )))}
+        {series.map((s, k) => segs(s.data).map((sg, j) => (
+          <polyline key={`l${k}-${j}`} points={sg.map((p) => p.join(",")).join(" ")} fill="none" stroke={s.color} strokeWidth={s.width || 2.5} strokeDasharray={s.dashed ? "6 5" : undefined} strokeLinejoin="round" strokeLinecap="round" />
+        )))}
+        {series.filter((s) => s.dots).map((s, k) => s.data.map((v, j) => (v === null || v === undefined ? null : <circle key={`d${k}-${j}`} cx={X(j)} cy={Y(v)} r="4" fill={s.color} stroke="var(--panel)" strokeWidth="2" />)))}
+        {series.map((s, k) => s.data.map((v, j) => (v === null || v === undefined ? null : <circle key={`h${k}-${j}`} cx={X(j)} cy={Y(v)} r="10" fill="transparent"><title>{`${labels[j]} · ${s.name}: ${money(v)}`}</title></circle>)))}
+        {labels.map((l, k) => (k % step === 0 || k === n - 1 ? <text key={k} x={X(k)} y={Hh - 8} textAnchor="middle" fontSize="11" fill="var(--muted)">{l}</text> : null))}
+      </svg>
+    </div>
+  );
+}
+function ProgressList({ groups, color, lblA, lblB, share }) {
+  const gs = groups.map((g) => ({ ...g, rows: g.rows.filter((r) => (r.a || 0) > 0 || (r.b || 0) > 0).sort((x, y) => (share ? y.b - x.b : y.a - x.a)) })).filter((g) => g.rows.length);
+  if (!gs.length) return <div style={{ fontSize: 13, color: P.muted }}>Sin datos para este período.</div>;
+  const maxB = Math.max(1, ...gs.flatMap((g) => g.rows.map((r) => r.b || 0)));
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      {!share && <div style={{ fontSize: 12, color: P.muted }}>La barra muestra {lblB.toLowerCase()} sobre {lblA.toLowerCase()}.</div>}
+      {gs.map((g, gi) => (
+        <div key={gi} style={{ display: "grid", gap: 10 }}>
+          {g.label && <div className="eb" style={{ margin: 0 }}>{g.label}</div>}
+          {g.rows.map((r, k) => {
+            const w = share ? ((r.b || 0) / maxB) * 100 : (r.a > 0 ? Math.min(100, ((r.b || 0) / r.a) * 100) : 0);
+            return (
+              <div key={k} style={{ display: "grid", gap: 5 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 14 }}>
+                  <span style={{ fontWeight: 500, minWidth: 0 }}>{r.n}</span>
+                  <span style={{ color: P.muted, fontSize: 13, whiteSpace: "nowrap" }}>
+                    {share ? <><b style={{ color: P.ink }}>{money(r.b)}</b> · {pct(r.a > 0 ? r.b / r.a : 0)}</> : <><b style={{ color: P.ink }}>{money(r.b)}</b> de {money(r.a)} · {pct(r.a > 0 ? (r.b || 0) / r.a : 0)}</>}
+                  </span>
+                </div>
+                <div style={{ height: 10, borderRadius: 5, background: P.faint }}><div style={{ height: 10, borderRadius: 5, width: `${Math.max(w > 0 ? 1.5 : 0, w)}%`, background: color }} /></div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+function Donut({ data, size = 190, thick = 30, center, sub }) {
+  const tot = data.reduce((a, d) => a + d.value, 0) || 1, r = (size - thick) / 2, C = 2 * Math.PI * r;
+  let off = 0;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Distribución por categoría" style={{ flexShrink: 0 }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--faint)" strokeWidth={thick} />
+      {data.map((d, k) => {
+        const len = (d.value / tot) * C;
+        const el = <circle key={k} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={d.color} strokeWidth={thick} strokeDasharray={`${Math.max(0, len - 1.5)} ${C}`} strokeDashoffset={-off} transform={`rotate(-90 ${size / 2} ${size / 2})`}><title>{`${d.label}: ${money(d.value)} (${pct(d.value / tot)})`}</title></circle>;
+        off += len; return el;
+      })}
+      <text x="50%" y="48%" textAnchor="middle" fontSize="18" fontWeight="700" fill="var(--ink)">{center}</text>
+      <text x="50%" y="60%" textAnchor="middle" fontSize="11" fill="var(--muted)">{sub}</text>
+    </svg>
+  );
+}
+
 const TONE = { bad: ["var(--bad-soft)", "var(--critical)"], warn: ["var(--warn-soft)", "var(--caution)"], info: ["var(--pri-soft)", "var(--teal)"], good: ["var(--good-soft)", "var(--healthy)"] };
 function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, mode = "cargar", from = 0, to, goCargar }) {
   const [onlyPend, setOnlyPend] = useState(false);
   const [deuView, setDeuView] = useState("gen");
   const [cobView, setCobView] = useState("gen");
+  const [personD, setPersonD] = useState("__all__"), [personC, setPersonC] = useState("__all__");
   const A = (i.actuals && i.actuals[rm]) || {};
   const nextM = Math.min(rm + 1, H - 1);
   const scOf = (m) => (i.horizonte[m] ? i.horizonte[m].sc : "e2");
@@ -807,14 +930,29 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   if (mode === "ana") {
     const tTo = to == null ? rm : to;
     const idx = []; for (let m = from; m <= tTo; m++) idx.push(m);
+    const labels = idx.map(mlabel);
     const gTot = sum(i.gastosItems, (g) => +g.m || 0);
     const hasReal = (m) => { const mm = i.actuals && i.actuals[m]; return !!(mm && (mm.ingreso != null || ["g", "d", "c", "dp", "cp"].some((k) => mm[k] && Object.keys(mm[k]).length))); };
     const projResMes = (m) => (+i.ingreso[scOf(m)] || 0) + sum(i.porCobrar, (c) => (c.cobros || [])[m] || 0) - gTot - sum(i.deudas, (d) => (d.pagos || [])[m] || 0);
     const realResMes = (m) => { const mm = (i.actuals && i.actuals[m]) || {}; const ing = mm.ingreso != null ? +mm.ingreso : (+i.ingreso[scOf(m)] || 0); const gas = sum(i.gastosItems, (g) => (mm.g && mm.g[g.id] !== undefined ? +mm.g[g.id] : +g.m || 0)); return ing + sum(i.porCobrar, (c) => realCob(m, c.id)) - gas - sum(i.deudas, (d) => realDebt(m, d.id)); };
-    const tProj = idx.map(projResMes), tReal = idx.map((m) => (hasReal(m) ? realResMes(m) : null));
-    const cargados = tReal.filter((v) => v !== null).length;
-    const provPaidHasta = (key, itemId, prov) => { let s = 0; for (let m = 0; m <= tTo; m++) { const mm = i.actuals && i.actuals[m]; const g = mm && mm[key] && mm[key][itemId]; if (g) s += +g[prov] || 0; } return s; };
+    const cargados = idx.filter(hasReal);
+    const lastReal = cargados.length ? cargados[cargados.length - 1] : null;
+    const resReal = sum(cargados, realResMes), resPlan = sum(cargados, projResMes);
+    const pagReal = sum(cargados, (m) => sum(i.deudas, (d) => realDebt(m, d.id))), pagPlan = sum(cargados, (m) => sum(i.deudas, (d) => (d.pagos || [])[m] || 0));
+    const cobReal = sum(cargados, (m) => sum(i.porCobrar, (c) => realCob(m, c.id))), cobPlan = sum(cargados, (m) => sum(i.porCobrar, (c) => (c.cobros || [])[m] || 0));
+    const stat = (label, re, pl, pos) => { const d = re - pl, flat = Math.abs(d) < 1, good = pos ? d >= 0 : d <= 0; return (
+      <div key={label} className="panel" style={{ padding: 14, display: "grid", gap: 3 }}>
+        <span style={{ fontSize: 13, color: P.muted, fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 22, fontWeight: 700, color: re < 0 ? P.critical : P.ink }}>{money(re)}</span>
+        <span style={{ fontSize: 13, color: P.muted }}>Plan {money(pl)}</span>
+        <span className="chip" style={{ justifySelf: "start", color: flat ? P.muted : good ? P.healthy : P.critical, background: flat ? P.faint : good ? "var(--good-soft)" : "var(--bad-soft)" }}>{flat ? "Igual al plan" : `${d > 0 ? "▲" : "▼"} ${money(Math.abs(d))}`}</span>
+      </div>); };
+    const debtTot = sum(i.deudas, (d) => +d.saldo || 0);
+    const planRem = (m) => sum(i.deudas, (d) => { let c = 0; for (let k = 0; k <= m; k++) c += (d.pagos || [])[k] || 0; return Math.max(0, (+d.saldo || 0) - c); });
+    const realRem = (m) => { let p = 0; for (let k = 0; k <= m; k++) p += sum(i.deudas, (d) => realDebt(k, d.id)); return Math.max(0, debtTot - p); };
+    let libre = null; for (let m = 0; m < H; m++) if (planRem(m) <= 0.5) { libre = m; break; }
     const paidHasta = (fn, id) => { let s = 0; for (let m = 0; m <= tTo; m++) s += fn(m, id); return s; };
+    const provPaidHasta = (key, itemId, prov) => { let s = 0; for (let m = 0; m <= tTo; m++) { const mm = i.actuals && i.actuals[m]; const g = mm && mm[key] && mm[key][itemId]; if (g) s += +g[prov] || 0; } return s; };
     const genGroups = (items, saldoKey, fn) => ["compania", "personal"].map((amb) => ({ label: amb === "compania" ? "Compañía" : "Personal", rows: items.filter((x) => x.ambito === amb).map((x) => ({ n: x.n, a: +x[saldoKey] || 0, b: paidHasta(fn, x.id) })) }));
     const provGroups = (items, listKey, dpKey) => ["compania", "personal"].map((amb) => {
       const map = {};
@@ -824,26 +962,63 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
       });
       return { label: amb === "compania" ? "Compañía" : "Personal", rows: Object.values(map) };
     });
+    const perMonthReal = (key, items, name, m) => { const mm = i.actuals && i.actuals[m]; let s = 0; items.forEach((it) => { const g = mm && mm[key] && mm[key][it.id]; if (g && g[name] !== undefined) s += +g[name] || 0; }); return s; };
+    const personBlock = (eb, title, agg, items, key, sel, setSel, color, allLbl) => {
+      const names = agg.names.filter((n) => agg.byTotal[n] > 0);
+      const one = sel !== "__all__" && agg.byMonth[sel];
+      return (
+        <Panel eb={eb} title={one ? `${sel}: plan vs real` : title} right={
+          <select className="sel" aria-label="Elegir persona" value={one ? sel : "__all__"} onChange={(e) => setSel(e.target.value)}>
+            <option value="__all__">{allLbl}</option>
+            {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>}>
+          {one
+            ? <TChart height={200} labels={labels} series={[{ name: "Plan", data: idx.map((m) => agg.byMonth[sel][m] || 0), color: P.muted, dashed: true }, { name: "Real", data: idx.map((m) => (hasReal(m) ? perMonthReal(key, items, sel, m) : null)), color, dots: true }]} />
+            : <ProgressList share groups={[{ label: "", rows: names.map((n) => ({ n, a: agg.grand, b: agg.byTotal[n] })) }]} color={color} />}
+        </Panel>
+      );
+    };
     const metaRows = i.metas.map((g) => { let acum = 0; for (let k = 0; k <= tTo; k++) acum += metaAporte(g, k); return { n: g.n, a: +g.monto || 0, b: acum }; });
     return (
       <>
-        <Panel eb="Tendencia" title="Resultado mes a mes: plan vs real">
-          <LineChart months={idx.map(mlabel)} serieA={tProj} serieB={tReal} lblA="Plan" lblB="Real" colA={P.muted} colB={P.teal} />
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 10, fontSize: 13, color: P.muted }}>
-            <span>Meses cargados: <b style={{ color: P.ink }}>{cargados}</b></span>
-            <span>Acumulado real: <b style={{ color: P.ink }}>{money(sum(tReal, (v) => v || 0))}</b></span>
-            <span>Plan del período: <b style={{ color: P.ink }}>{money(sum(tProj, (v) => v))}</b></span>
+        {cargados.length === 0
+          ? <div className="panel" style={{ fontSize: 14, color: P.muted }}>Todavía no hay meses cargados en este período. Los gráficos muestran el plan; cuando cargues un mes en <b style={{ color: P.ink }}>Cargar</b>, aparece la línea real encima.</div>
+          : <div className="kpis4">
+              {stat("Resultado acumulado", resReal, resPlan, true)}
+              {stat("Deuda pagada", pagReal, pagPlan, true)}
+              {stat("Cobrado", cobReal, cobPlan, true)}
+              <div className="panel" style={{ padding: 14, display: "grid", gap: 3 }}>
+                <span style={{ fontSize: 13, color: P.muted, fontWeight: 500 }}>Meses cargados</span>
+                <span style={{ fontSize: 22, fontWeight: 700 }}>{cargados.length} de {idx.length}</span>
+                <span style={{ fontSize: 13, color: P.muted }}>Las comparaciones usan solo los meses cargados.</span>
+              </div>
+            </div>}
+        <Panel eb="Tendencia" title="Resultado de cada mes: plan vs real">
+          <TChart labels={labels} series={[{ name: "Plan", data: idx.map(projResMes), color: P.muted, dashed: true }, { name: "Real", data: idx.map((m) => (hasReal(m) ? realResMes(m) : null)), color: P.teal, dots: true, area: true }]} />
+        </Panel>
+        <Panel eb="Deuda" title="Deuda restante: plan vs real">
+          <TChart labels={labels} series={[{ name: "Plan", data: idx.map(planRem), color: P.muted, dashed: true }, { name: "Real", data: idx.map((m) => (lastReal !== null && m <= lastReal ? realRem(m) : null)), color: P.critical, dots: true }]} />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginTop: 10, fontSize: 13, color: P.muted }}>
+            <span>Libre de deuda según el plan: <b style={{ color: libre !== null ? P.healthy : P.caution }}>{libre !== null ? mlabel(libre) : `más de ${H} meses`}</b></span>
+            <span>Pagado en el período: <b style={{ color: P.ink }}>{money(pagReal)}</b></span>
+            {lastReal !== null && <span>Restante a {mlabel(lastReal)}: <b style={{ color: P.ink }}>{money(realRem(lastReal))}</b></span>}
           </div>
         </Panel>
-        <Panel eb="Deudas" title={deuView === "gen" ? `Total vs pagado a ${mlabel(tTo)}, por deuda` : `Total vs pagado a ${mlabel(tTo)}, por acreedor`} right={<RealToggle v={deuView} set={setDeuView} />}>
-          <GBars groups={deuView === "gen" ? genGroups(i.deudas, "saldo", realDebt) : provGroups(i.deudas, "pagosProv", "dp")} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(tTo)}`} />
-        </Panel>
-        <Panel eb="Cuentas por cobrar" title={cobView === "gen" ? `Total vs cobrado a ${mlabel(tTo)}, por cuenta` : `Total vs cobrado a ${mlabel(tTo)}, por pagador`} right={<RealToggle v={cobView} set={setCobView} />}>
-          <GBars groups={cobView === "gen" ? genGroups(i.porCobrar, "monto", realCob) : provGroups(i.porCobrar, "cobrosProv", "cp")} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(tTo)}`} />
-        </Panel>
+        <div className="g2">
+          <Panel eb="Deudas" title={`Cuánto llevás pagado a ${mlabel(tTo)}`} right={<RealToggle v={deuView} set={setDeuView} />}>
+            <ProgressList groups={deuView === "gen" ? genGroups(i.deudas, "saldo", realDebt) : provGroups(i.deudas, "pagosProv", "dp")} color={P.critical} lblA="Lo que debés" lblB="Lo pagado" />
+          </Panel>
+          <Panel eb="Cuentas por cobrar" title={`Cuánto llevás cobrado a ${mlabel(tTo)}`} right={<RealToggle v={cobView} set={setCobView} />}>
+            <ProgressList groups={cobView === "gen" ? genGroups(i.porCobrar, "monto", realCob) : provGroups(i.porCobrar, "cobrosProv", "cp")} color={P.healthy} lblA="Lo que te deben" lblB="Lo cobrado" />
+          </Panel>
+        </div>
+        <div className="g2">
+          {personBlock("Pagos por acreedor", "A quién le pagás en el período", aggProv(i.deudas, "pagosProv", from, tTo), i.deudas, "dp", personD, setPersonD, P.critical, "Todos los acreedores")}
+          {personBlock("Cobros por pagador", "Quién te paga en el período", aggProv(i.porCobrar, "cobrosProv", from, tTo), i.porCobrar, "cp", personC, setPersonC, P.healthy, "Todos los pagadores")}
+        </div>
         {metaRows.length > 0 && (
           <Panel eb="Metas" title={`Avance a ${mlabel(tTo)}`}>
-            <GBars groups={[{ label: "", rows: metaRows }]} color={P.teal} lblA="Meta total" lblB={`Acumulado a ${mlabel(tTo)}`} />
+            <ProgressList groups={[{ label: "", rows: metaRows }]} color={P.teal} lblA="La meta" lblB="Lo acumulado" />
           </Panel>
         )}
       </>
@@ -1038,28 +1213,42 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
         {view === "home" && <RealView mode="home" {...rvProps} goCargar={() => setView("cargar")} />}
         {view === "cargar" && <RealView mode="cargar" {...rvProps} />}
         {view === "plan" && (
-          <div className="gcol" style={{ maxWidth: 880, width: "100%", margin: "0 auto" }}>
+          <div className="gcol plist" style={{ maxWidth: 880, width: "100%", margin: "0 auto" }}>
             <p style={{ margin: "0 0 2px", fontSize: 14, color: P.muted }}>Lo que esperás que pase. Se edita pocas veces; la carga de cada mes va en <b style={{ color: P.ink }}>Cargar</b>. Tocá cada bloque para abrirlo.</p>
             <Panel fold open eb="Ingresos" title="Ingresos y escenarios" summary={`${SCEN.length} escenarios · de ${money(Math.min(...SCEN.map((k) => +i.ingreso[k] || 0)))} a ${money(Math.max(...SCEN.map((k) => +i.ingreso[k] || 0)))} por mes`}>
-              {SCEN.map((k) => (
-                <div className="row" key={k}>
-                  <input className="nam" value={i.escNombres?.[k] ?? SCL[k]} onChange={(e) => setEscN(k, e.target.value)} style={{ color: SCC[k], fontWeight: 600, maxWidth: 160 }} />
-                  <span className="mono" style={{ color: P.muted, fontSize: 14 }}>$<input className="num mono" type="number" value={i.ingreso[k]} onChange={(e) => setIng(k, +e.target.value || 0)} /></span>
+              <div style={{ display: "grid" }}>
+                {SCEN.map((k) => (
+                  <div key={k} className="row" style={{ borderBottom: `1px solid ${P.faint}` }}>
+                    <span style={{ width: 14, height: 14, borderRadius: 4, background: SCC[k], flexShrink: 0 }} />
+                    <input className="nam" aria-label="Nombre del escenario" value={i.escNombres?.[k] ?? SCL[k]} onChange={(e) => setEscN(k, e.target.value)} />
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: P.muted }}>$<input className="num" type="number" aria-label="Ingreso del escenario" value={i.ingreso[k]} onChange={(e) => setIng(k, +e.target.value || 0)} /></span>
+                  </div>
+                ))}
+                <div className="row"><span style={{ fontSize: 14, color: P.muted }}>Ahorro líquido hoy</span><span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: P.muted }}>$<input className="num" type="number" aria-label="Ahorro líquido hoy" value={i.ahorroLiquido} onChange={(e) => set({ ahorroLiquido: +e.target.value || 0 })} /></span></div>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, alignItems: "baseline", marginBottom: 10 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Qué escenario esperás cada mes</span>
+                  <span style={{ fontSize: 12, color: P.muted }}>Tocá un mes para cambiarlo</span>
                 </div>
-              ))}
-              <div className="row"><span style={{ fontSize: 14, color: P.muted }}>Ahorro líquido hoy</span><input className="num mono" type="number" value={i.ahorroLiquido} onChange={(e) => set({ ahorroLiquido: +e.target.value || 0 })} /></div>
-              <div style={{ borderTop: `1px solid ${P.line}`, marginTop: 10, paddingTop: 12 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Qué escenario esperás cada mes</div>
-                <div style={{ fontSize: 13, color: P.muted, marginBottom: 10 }}>Elegilo en cada mes; toda la proyección se recalcula sola.</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))", gap: 8 }}>
-                  {i.horizonte.map((h, idx) => (
-                    <label key={idx} style={{ display: "grid", gap: 4, padding: 8, borderRadius: 10, background: P.faint, borderTop: `3px solid ${SCC[h.sc]}` }}>
-                      <span style={{ fontSize: 12, color: P.muted, fontWeight: 600 }}>{mlabel(idx)}</span>
-                      <select className="sel" value={h.sc} onChange={(e) => setSc(idx, e.target.value)} style={{ maxWidth: "100%", width: "100%" }}>
-                        {SCEN.map((k) => <option key={k} value={k}>{(i.escNombres && i.escNombres[k]) || SCL[k]}</option>)}
-                      </select>
-                    </label>
-                  ))}
+                {[0, 12].map((st) => (
+                  <div key={st} style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, color: P.muted, marginBottom: 4 }}>{mlabel(st)} – {mlabel(Math.min(H - 1, st + 11))}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 4 }}>
+                      {i.horizonte.slice(st, st + 12).map((h, j) => {
+                        const idx = st + j, nm = i.escNombres?.[h.sc] ?? SCL[h.sc];
+                        return (
+                          <button key={idx} onClick={() => cycle(idx)} title={`${mlabel(idx)}: ${nm}`} aria-label={`${mlabel(idx)}: ${nm}. Tocá para cambiar`} style={{ cursor: "pointer", fontFamily: "inherit", border: "none", background: "transparent", padding: 0, display: "grid", gap: 4, justifyItems: "center" }}>
+                            <span style={{ width: "100%", height: 30, borderRadius: 6, background: SCC[h.sc] }} />
+                            <span style={{ fontSize: 11, color: P.muted }}>{MESES[(START + idx) % 12]}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 12, color: P.muted }}>
+                  {SCEN.map((k) => <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: SCC[k] }} />{i.escNombres?.[k] ?? SCL[k]}</span>)}
                 </div>
               </div>
             </Panel>
@@ -1185,9 +1374,12 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
         )}
         {view === "ana" && (
           <div className="gcol">
-            <section className="panel" style={{ display: "grid", gap: 12 }}>
-              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div><div className="eb">Período de análisis</div><h2 className="h2" style={{ margin: 0 }}>{anaFrom === anaTo ? mlabel(anaFrom) : `${mlabel(anaFrom)} → ${mlabel(anaTo)}`}</h2></div>
+            <section className="panel sticky" style={{ display: "grid", gap: 10, padding: "12px 16px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                  <span className="eb" style={{ margin: 0 }}>Período</span>
+                  <b style={{ fontSize: 16 }}>{anaFrom === anaTo ? mlabel(anaFrom) : `${mlabel(anaFrom)} → ${mlabel(anaTo)}`}</b>
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, fontSize: 14, color: P.muted }}>
                   Desde <MonthSel v={anaFrom} onChange={(v) => { setAnaFrom(v); if (v > anaTo) setAnaTo(v); }} />
                   hasta <MonthSel v={anaTo} onChange={(v) => { setAnaTo(v); if (v < anaFrom) setAnaFrom(v); }} />
@@ -1195,48 +1387,103 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {[["Este mes", rm, rm], ["Próximos 3", rm, Math.min(H - 1, rm + 2)], ["Próximos 6", rm, Math.min(H - 1, rm + 5)], ["12 meses", 0, 11], ["Todo", 0, H - 1]].map(([l, f, t]) => (
-                  <button key={l} className="btn" onClick={() => { setAnaFrom(f); setAnaTo(t); }} style={{ borderColor: anaFrom === f && anaTo === t ? P.teal : P.line, background: anaFrom === f && anaTo === t ? "var(--pri-soft)" : P.panel }}>{l}</button>
+                  <button key={l} className="btn" onClick={() => { setAnaFrom(f); setAnaTo(t); }} style={{ minHeight: 32, padding: "4px 12px", borderColor: anaFrom === f && anaTo === t ? P.teal : P.line, background: anaFrom === f && anaTo === t ? "var(--pri-soft)" : P.panel }}>{l}</button>
                 ))}
               </div>
             </section>
+
             <RealView mode="ana" {...rvProps} from={anaFrom} to={anaTo} />
-            <Panel eb={`Etapa actual · ${r.etapa}`} title="Prueba de estrés: excedente por escenario">
-              <div className="cards4" style={{ marginBottom: 12 }}>
-                {r.escArr.map((e) => {
-                  const c = e.allIn < 0 ? P.critical : SCC[e.s];
+
+            <div className="g2">
+              <Panel eb="Gastos y deudas" title="En qué se va la plata">
+                {pieData.data.length === 0 ? <div style={{ fontSize: 14, color: P.muted }}>Sin datos.</div> : (() => {
+                  const act = pieData.data.filter((d) => !pieOff[d.label]);
+                  const actTot = act.reduce((a, d) => a + d.value, 0) || 1;
                   return (
-                    <div key={e.s} style={{ background: P.faint, border: `1px solid ${P.line}`, borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontSize: 12, color: SCC[e.s] }}>{i.escNombres?.[e.s] ?? SCL[e.s]}</div>
-                      <div className="mono" style={{ fontSize: 18, fontWeight: 600, color: c, marginTop: 2 }}>{money(e.allIn)}</div>
-                      <div style={{ height: 5, borderRadius: 3, background: P.line, marginTop: 6 }}><div style={{ height: "100%", borderRadius: 3, width: `${(Math.abs(e.allIn) / maxAbs) * 100}%`, background: c }} /></div>
+                    <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+                      <Donut data={act} center={kfmt(actTot)} sub="en el período" />
+                      <div style={{ flex: "1 1 200px", display: "grid", gap: 2 }}>
+                        {pieData.data.map((d) => {
+                          const off = !!pieOff[d.label];
+                          return (
+                            <button key={d.label} onClick={() => setPieOff((o) => ({ ...o, [d.label]: !o[d.label] }))} aria-pressed={!off} style={{ cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8, border: "none", background: "transparent", padding: "5px 2px", color: P.ink, opacity: off ? 0.45 : 1, textAlign: "left" }}>
+                              <span style={{ width: 11, height: 11, borderRadius: 3, background: off ? P.line : d.color, flexShrink: 0 }} />
+                              <span style={{ flex: 1, fontSize: 13, textDecoration: off ? "line-through" : "none", textTransform: "capitalize" }}>{d.label.toLowerCase()}</span>
+                              <span style={{ fontSize: 13, color: P.muted }}>{off ? "—" : pct(d.value / actTot)}</span>
+                            </button>
+                          );
+                        })}
+                        <span style={{ fontSize: 12, color: P.muted, marginTop: 4 }}>Tocá una categoría para sacarla o volver a sumarla.</span>
+                      </div>
                     </div>
                   );
-                })}
-              </div>
-              <p style={{ fontSize: 14, color: P.muted, margin: 0 }}>Equilibrio en <b className="mono" style={{ color: P.ink }}>{r.trabajosEq.toFixed(1)}</b> trabajos/mes · deuda neta <b className="mono" style={{ color: P.ink }}>{money(M.deudaNeta)}</b>.</p>
+                })()}
+              </Panel>
+
+              <Panel eb="Ahorro" title="Plata acumulada según el plan">
+                {(() => {
+                  const fl = r.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo);
+                  const fT = r.flujo[anaTo] || {};
+                  return (
+                    <>
+                      <TChart height={200} labels={fl.map((f) => mlabel(f.m))} series={[
+                        { name: "Total", data: fl.map((f) => (f.ahorroAcum || 0) + (f.sobranteAcum || 0) + (f.reservaAcum || 0)), color: P.teal, dots: true, area: true },
+                        { name: "Ahorro", data: fl.map((f) => f.ahorroAcum || 0), color: P.blue },
+                        { name: "Reserva impuestos", data: fl.map((f) => f.reservaAcum || 0), color: P.gold, dashed: true },
+                      ]} />
+                      <div className="kpis" style={{ marginTop: 10 }}>
+                        {[["Ahorro definido", fT.ahorroAcum], ["Sobrante libre", fT.sobranteAcum], ["Reserva impuestos", fT.reservaAcum], ["Total a " + mlabel(anaTo), (fT.ahorroAcum || 0) + (fT.sobranteAcum || 0) + (fT.reservaAcum || 0)]].map(([l, v]) => (
+                          <div key={l} style={{ background: P.faint, borderRadius: 10, padding: "8px 10px" }}><div style={{ fontSize: 12, color: P.muted }}>{l}</div><b style={{ fontSize: 15 }}>{money(v || 0)}</b></div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </Panel>
+            </div>
+
+            <Panel eb="Patrimonio neto" title={`Lo que tenés menos lo que debés, a ${mlabel(anaTo)}`}>
+              {(() => {
+                const fl = r.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo);
+                const fT = r.flujo[anaTo] || {};
+                const act = (fT.patrimonioAcum || 0) + (fT.reservaAcum || 0) + (fT.cobrosPend || 0), pas = (fT.deudaTot || 0) + (fT.cardCarry || 0);
+                return (
+                  <div style={{ display: "grid", gap: 14 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-end" }}>
+                      <div><div style={{ fontSize: 13, color: P.muted }}>Patrimonio neto (plan)</div><div style={{ fontSize: 30, fontWeight: 700, color: (fT.patrimonioNeto || 0) < 0 ? P.critical : P.healthy }}>{money(fT.patrimonioNeto || 0)}</div></div>
+                      <div style={{ fontSize: 14, color: P.muted }}>Tenés <b style={{ color: P.ink }}>{money(act)}</b> y debés <b style={{ color: P.ink }}>{money(pas)}</b></div>
+                    </div>
+                    <TChart height={200} labels={fl.map((f) => mlabel(f.m))} series={[{ name: "Patrimonio neto", data: fl.map((f) => f.patrimonioNeto || 0), color: P.teal, dots: true, area: true }]} />
+                    <div className="kpis4">
+                      {[["Ahorro y sobrante", fT.patrimonioAcum], ["Reserva impuestos", fT.reservaAcum], ["Te deben", fT.cobrosPend], ["Debés", -(pas)]].map(([l, v]) => (
+                        <div key={l} style={{ background: P.faint, borderRadius: 10, padding: "8px 10px" }}><div style={{ fontSize: 12, color: P.muted }}>{l}</div><b style={{ fontSize: 15, color: (v || 0) < 0 ? P.critical : P.ink }}>{money(v || 0)}</b></div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </Panel>
 
-            {/* FLUJO MES A MES */}
-            <Panel eb="Flujo mes a mes" title="Detalle de resultados en totales">
-              <div style={{ overflow: "auto", maxHeight: 340 }}>
+            <Panel fold eb="Detalle" title="Flujo mes a mes (plan)" summary="La contabilidad completa de cada mes del período">
+              <div className="tblw">
                 <table className="tbl">
-                  <thead><tr><th>Mes</th><th>Salario</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Déf. ant.</th><th>Metas</th><th>Reserva</th><th>Ahorro</th><th>Resultado</th></tr></thead>
+                  <thead><tr><th>Mes</th><th>Ingreso</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Déficit anterior</th><th>Metas</th><th>Reserva</th><th>Ahorro</th><th>Resultado</th></tr></thead>
                   <tbody>
                     {r.flujo.filter((f) => f.m >= anaFrom && f.m <= anaTo).map((f) => {
-                      const res = f.resultado;
-                      const label = f.deficit < 0 ? "Déficit" : f.cubierto > 0 ? "Cubierto" : f.sobrante > 0 ? "Sobra" : "—";
+                      const lbl = f.deficit < 0 ? "déficit" : f.cubierto > 0 ? "cubierto" : f.sobrante > 0 ? "sobra" : "";
+                      const neg = (v) => (v ? "−" + money(v) : "·");
                       return (
                         <tr key={f.m} style={{ borderBottom: `1px solid ${P.faint}` }}>
-                          <td style={{ color: SCC[f.sc] }}>{mlabel(f.m)}</td>
-                          <td className="mono" style={{ color: P.healthy }}>{money(f.salario)}</td>
-                          <td className="mono" style={{ color: P.healthy }}>{f.cobros ? money(f.cobros) : "·"}</td>
-                          <td className="mono" style={{ color: P.critical }}>−{money(f.gastos)}</td>
-                          <td className="mono" style={{ color: P.critical }}>{f.deuda ? "−" + money(f.deuda) : "·"}</td>
-                          <td className="mono" style={{ color: P.critical }}>{f.tarjeta ? "−" + money(f.tarjeta) : "·"}</td>
-                          <td className="mono" style={{ color: P.critical }}>{f.metasMes ? "−" + money(f.metasMes) : "·"}</td>
-                          <td className="mono" style={{ color: P.muted }}>{f.reserva ? money(f.reserva) : "·"}</td>
-                          <td className="mono" style={{ color: P.teal }}>{f.ahorro ? money(f.ahorro) : "·"}</td>
-                          <td className="mono" style={{ color: res < 0 ? P.critical : P.ink, fontWeight: 600 }}>{money(res)} <span style={{ fontSize: 10, color: P.muted }}>{label}</span></td>
+                          <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: SCC[f.sc] }} />{mlabel(f.m)}</span></td>
+                          <td>{money(f.salario)}</td>
+                          <td>{f.cobros ? money(f.cobros) : "·"}</td>
+                          <td style={{ color: P.muted }}>{neg(f.gastos)}</td>
+                          <td style={{ color: P.muted }}>{neg(f.deuda)}</td>
+                          <td style={{ color: f.tarjeta ? P.critical : P.muted }}>{neg(f.tarjeta)}</td>
+                          <td style={{ color: P.muted }}>{neg(f.metasMes)}</td>
+                          <td>{f.reserva ? money(f.reserva) : "·"}</td>
+                          <td>{f.ahorro ? money(f.ahorro) : "·"}</td>
+                          <td style={{ fontWeight: 700, color: f.resultado < 0 ? P.critical : P.ink }}>{money(f.resultado)} <span style={{ fontSize: 11, fontWeight: 400, color: P.muted }}>{lbl}</span></td>
                         </tr>
                       );
                     })}
@@ -1244,176 +1491,6 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                 </table>
               </div>
             </Panel>
-
-            {/* PROYECCIÓN DEUDA (horizonte) */}
-            <Panel eb="Horizonte · el color es el escenario de cada mes" title="Deuda restante mes a mes">
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(${H},1fr)`, gap: 2, alignItems: "end" }}>
-                {r.flujo.map((f, idx) => (
-                  <div key={idx} onClick={() => cycle(idx)} title={`${mlabel(idx)}: ${i.escNombres?.[f.sc] ?? SCL[f.sc]} · deuda ${money(f.deudaTot)}`} style={{ cursor: "pointer", textAlign: "center" }}>
-                    <div style={{ height: 64, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-                      <div style={{ width: "72%", height: 3 + (f.deudaTot / maxDeuda) * 60, background: SCC[f.sc], opacity: 0.85, borderRadius: "2px 2px 0 0" }} />
-                    </div>
-                    <div style={{ width: 5, height: 5, borderRadius: 3, background: SCC[f.sc], margin: "3px auto 0" }} />
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 12, fontSize: 13.5 }}>
-                <span style={{ color: P.muted }}>Libre de deuda: <b className="mono" style={{ color: r.mile.libre ? P.healthy : P.caution }}>{r.mile.libre ? mlabel(r.mile.libre.m) : "> " + H + " m"}</b></span>
-                <span style={{ color: P.muted }}>Colchón 1 mes: <b className="mono" style={{ color: r.mile.colchon1 ? P.healthy : P.caution }}>{r.mile.colchon1 ? mlabel(r.mile.colchon1.m) : "> " + H + " m"}</b></span>
-                {r.mile.bajoCero && <span style={{ color: P.critical }}>Déficit en {mlabel(r.mile.bajoCero.m)}</span>}
-              </div>
-            </Panel>
-
-            <div className="g2">
-              {/* TORTA POR CATEGORÍA */}
-              <Panel eb="Gasto por categoría" title={anaFrom === anaTo ? mlabel(anaTo) : `${mlabel(anaFrom)} – ${mlabel(anaTo)}`}>
-                {pieData.data.length === 0 ? <div style={{ fontSize: 14, color: P.muted }}>Sin datos.</div> : (() => {
-                  const activeData = pieData.data.filter((d) => !pieOff[d.label]);
-                  const activeTot = activeData.reduce((a, d) => a + d.value, 0) || 1;
-                  return (
-                    <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-                      <Pie data={activeData} />
-                      <div style={{ flex: 1, minWidth: 150 }}>
-                        {pieData.data.slice(0, 12).map((d, k) => {
-                          const off = !!pieOff[d.label];
-                          return (
-                            <div key={k} onClick={() => setPieOff((o) => ({ ...o, [d.label]: !o[d.label] }))} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 13, marginBottom: 3, opacity: off ? 0.45 : 1 }}>
-                              <span style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: off ? "line-through" : "none" }}><span style={{ width: 10, height: 10, borderRadius: 2, background: off ? P.muted : d.color }} />{d.label}</span>
-                              <span className="mono" style={{ color: P.muted }}>{off ? "—" : pct(d.value / activeTot)}</span>
-                            </div>
-                          );
-                        })}
-                        <div style={{ fontSize: 11, color: P.muted, marginTop: 6 }}>Tocá una categoría para incluirla o quitarla del análisis.</div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </Panel>
-
-              {/* TODO LO POSITIVO ACUMULADO */}
-              <Panel eb="Acumulado a la fecha" title="Todo lo positivo: ahorro + sobrante + reserva">
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 90 }}>
-                  {ahoData.map((f, k) => (
-                    <div key={k} title={`${mlabel(f.m)}: total ${money(f.ahorroAcum + f.sobranteAcum + f.reservaAcum)}`} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%" }}>
-                      <div style={{ background: P.gold, height: `${Math.max(0, (f.reservaAcum / ahoMax) * 100)}%` }} title="reserva" />
-                      <div style={{ background: P.softgreen, height: `${Math.max(0, (f.sobranteAcum / ahoMax) * 100)}%` }} title="sobrante" />
-                      <div style={{ background: P.teal, height: `${Math.max(0, (f.ahorroAcum / ahoMax) * 100)}%` }} title="ahorro" />
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginTop: 10, fontSize: 13, display: "grid", gap: 3 }}>
-                  <div>Total a {mlabel(ahoMes)}: <b className="mono" style={{ color: P.ink }}>{money((r.flujo[ahoMes]?.ahorroAcum || 0) + (r.flujo[ahoMes]?.sobranteAcum || 0) + (r.flujo[ahoMes]?.reservaAcum || 0))}</b></div>
-                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.teal, borderRadius: 2, marginRight: 5 }} />Ahorro (definido) <b className="mono">{money(r.flujo[ahoMes]?.ahorroAcum || 0)}</b></div>
-                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.softgreen, borderRadius: 2, marginRight: 5 }} />Sobrante (libre / inversión) <b className="mono">{money(r.flujo[ahoMes]?.sobranteAcum || 0)}</b></div>
-                  <div style={{ color: P.muted }}><span style={{ display: "inline-block", width: 8, height: 8, background: P.gold, borderRadius: 2, marginRight: 5 }} />Reserva fiscal (impuestos) <b className="mono">{money(r.flujo[ahoMes]?.reservaAcum || 0)}</b></div>
-                </div>
-              </Panel>
-            </div>
-
-            {/* DEUDA A LA FECHA */}
-            <Panel eb="Proyección de deuda" title="Pagos y saldo restante a la fecha">
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 70 }}>
-                {deuData.map((f, k) => (
-                  <div key={k} title={`${mlabel(f.m)}: pagó ${money(f.deuda)}`} style={{ flex: 1, background: P.teal, opacity: 0.8, height: `${Math.max(2, (f.deuda / deuPagMax) * 100)}%`, borderRadius: "2px 2px 0 0" }} />
-                ))}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12, fontSize: 14 }}>
-                <span style={{ color: P.muted }}>Pagado en el período: <b className="mono" style={{ color: P.ink }}>{money(deuPagTot)}</b></span>
-                <span style={{ color: P.muted }}>Deuda restante a {mlabel(deuMes)}: <b className="mono" style={{ color: deuTotAtMes > 0 ? P.critical : P.healthy }}>{money(deuTotAtMes)}</b></span>
-              </div>
-            </Panel>
-
-            {/* DEUDA POR PROVEEDOR */}
-            <Panel eb="Deuda por proveedor" title={deuProv === "__all__" ? "Cuánto le debés a cada uno" : "Pago mes a mes"} right={
-              <select className="sel" style={{ maxWidth: 150 }} value={deuProv} onChange={(e) => setDeuProv(e.target.value)}>
-                <option value="__all__">Deuda total</option>
-                {aggDeudaR.names.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>}>
-              <ProvChart agg={aggDeudaR} sel={deuProv} color={P.critical} />
-            </Panel>
-
-            {/* COBROS POR PAGADOR */}
-            <Panel eb="Cobros por pagador" title={cobProv === "__all__" ? "Cuánto te debe cada uno" : "Cobro mes a mes"} right={
-              <select className="sel" style={{ maxWidth: 150 }} value={cobProv} onChange={(e) => setCobProv(e.target.value)}>
-                <option value="__all__">Cobro total</option>
-                {aggCobroR.names.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>}>
-              <ProvChart agg={aggCobroR} sel={cobProv} color={P.healthy} />
-            </Panel>
-
-            {/* PATRIMONIO NETO — foto para análisis */}
-            <Panel eb="Patrimonio neto · foto para análisis" title={`Activos − Pasivos a ${mlabel(anaTo)}`}>
-              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ minWidth: 150 }}>
-                  <div style={{ fontSize: 12, color: P.muted }}>Patrimonio neto a {mlabel(netoMes)}</div>
-                  <div className="mono" style={{ fontSize: 26, fontWeight: 700, color: (fNeto.patrimonioNeto || 0) < 0 ? P.critical : P.healthy }}>{money(fNeto.patrimonioNeto || 0)}</div>
-                </div>
-                <table className="tbl" style={{ flex: 1, minWidth: 240 }}>
-                  <tbody>
-                    <tr><td style={{ color: P.healthy, fontWeight: 600 }}>Activos</td><td className="mono" style={{ fontWeight: 600 }}>{money(activos)}</td></tr>
-                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Ahorro + sobrante</td><td className="mono">{money(fNeto.patrimonioAcum || 0)}</td></tr>
-                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Reserva fiscal</td><td className="mono">{money(fNeto.reservaAcum || 0)}</td></tr>
-                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Por cobrar pendiente</td><td className="mono">{money(fNeto.cobrosPend || 0)}</td></tr>
-                    <tr><td style={{ color: P.critical, fontWeight: 600 }}>Pasivos</td><td className="mono" style={{ fontWeight: 600 }}>−{money(pasivos)}</td></tr>
-                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Deuda restante</td><td className="mono">−{money(fNeto.deudaTot || 0)}</td></tr>
-                    <tr><td style={{ paddingLeft: 14, color: P.muted }}>Déficit / tarjeta pendiente</td><td className="mono">−{money(fNeto.cardCarry || 0)}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 12, color: P.muted, marginBottom: 4 }}>Trayectoria del patrimonio neto</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 1, height: 76, position: "relative" }}>
-                  <div style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: P.line }} />
-                  {netoData.map((f, k) => {
-                    const hp = (Math.abs(f.patrimonioNeto) / netoAbsMax) * 36; const pos = f.patrimonioNeto >= 0;
-                    return (
-                      <div key={k} title={`${mlabel(f.m)}: ${money(f.patrimonioNeto)}`} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column" }}>
-                        <div style={{ height: 38, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>{pos && <div style={{ height: hp, background: P.healthy, borderRadius: "2px 2px 0 0" }} />}</div>
-                        <div style={{ height: 38 }}>{!pos && <div style={{ height: hp, background: P.critical, borderRadius: "0 0 2px 2px" }} />}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </Panel>
-
-            {/* ESCALERA */}
-            <Panel eb="Escalera de diagnóstico" title="Ordenar → Estabilizar → Crecer">
-              <div style={{ position: "relative", paddingLeft: 24 }}>
-                <div style={{ position: "absolute", left: 9, top: 8, bottom: 8, width: 1, background: P.line }} />
-                {r.gates.map((g) => {
-                  const here = !g.pass && g.id === r.gates.find((x) => !x.pass)?.id;
-                  const dot = g.pass ? P.healthy : here ? P.critical : P.line;
-                  return (
-                    <div key={g.id} style={{ position: "relative", padding: "7px 0", display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ position: "absolute", left: -24, width: 20, display: "flex", justifyContent: "center" }}><span style={{ width: g.pass ? 10 : 12, height: g.pass ? 10 : 12, borderRadius: 8, background: g.pass ? dot : P.panel, border: `2px solid ${dot}` }} /></span>
-                      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <span style={{ fontSize: 14, color: g.pass ? P.ink : here ? P.critical : P.muted, fontWeight: here ? 600 : 400 }}><span className="mono" style={{ fontSize: 12, color: P.muted, marginRight: 8 }}>{g.id}</span>{g.l}</span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}><span className="mono" style={{ fontSize: 13, color: P.muted }}>{g.v}</span>{here && <span className="mono" style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: P.critical, color: "#fff" }}>ACÁ ESTÁS</span>}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Panel>
-
-            <div className="g2">
-              <Panel eb="Diagnóstico" title="Lo que enciende alarmas">
-                {r.flags.length === 0 && <div style={{ fontSize: 14, color: r.anyIncome ? P.healthy : P.muted }}>{r.anyIncome ? "Sin alertas activas." : "Cargá ingresos para ver el diagnóstico."}</div>}
-                {r.flags.map((f, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 14, marginBottom: 10 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: sev(f.s), flexShrink: 0 }} /><span>{f.t}</span></div>))}
-              </Panel>
-              <Panel eb="Plan de acción" title="Qué atacar, en este orden">
-                {r.prio.length === 0 && <div style={{ fontSize: 14, color: P.muted }}>Cargá datos para el plan.</div>}
-                {r.prio.map((p, k) => (<div key={k} style={{ display: "flex", gap: 12, marginBottom: 10 }}><span className="mono" style={{ fontSize: 14, fontWeight: 600, color: P.teal, flexShrink: 0 }}>{k + 1}</span><span style={{ fontSize: 14 }}><b style={{ color: P.ink }}>{p.t}. </b><span style={{ color: P.muted }}>{p.d}</span></span></div>))}
-              </Panel>
-            </div>
-
-            {/* SUGERENCIAS */}
-            <Panel eb="Sugerencias y oportunidades" title="Dónde hay margen">
-              {r.sug.length === 0 && <div style={{ fontSize: 14, color: P.muted }}>Cargá más datos para ver oportunidades.</div>}
-              {r.sug.map((s, k) => (<div key={k} style={{ display: "flex", gap: 10, fontSize: 14, marginBottom: 10 }}><span style={{ marginTop: 6, width: 7, height: 7, borderRadius: 4, background: sev(s.s), flexShrink: 0 }} /><span>{s.t}</span></div>))}
-            </Panel>
-
           </div>
         )}
       </div>
