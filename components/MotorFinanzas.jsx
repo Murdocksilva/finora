@@ -209,7 +209,8 @@ function monthEst(i, m) {
   };
   const deuPer = prov(i.deudas, "pagosProv", "dp"), cobPer = prov(i.porCobrar, "cobrosProv", "cp");
   const met = i.metas.reduce((a, g) => { const r = !!(mm.mt && mm.mt[g.id] !== undefined); if (r) reg = true; return a + (r ? +mm.mt[g.id] || 0 : Math.max(0, metaAporte(g, m) + carryMeta(i.actuals, g, m))); }, 0);
-  return { ing, gas, deuPer, cobPer, met, reg };
+  const tdcReg = mm.tdc !== undefined && mm.tdc !== null; if (tdcReg) reg = true;
+  return { ing, gas, deuPer, cobPer, met, reg, tdcReg, tdc: tdcReg ? +mm.tdc || 0 : 0 };
 }
 function runEngine(i, useReal) {
   const gastos = i.gastosItems.reduce((a, x) => a + (+x.m || 0), 0);
@@ -270,21 +271,19 @@ function runEngine(i, useReal) {
     let deuda = 0; deudas.forEach((d) => { const p = E ? E.deuPer[d.id] || 0 : Math.min(d.pagos?.[m] || 0, d.rem); d.rem = Math.max(0, d.rem - p); deuda += p; });
     const metasMes = E ? E.met : i.metas.reduce((a, g) => a + metaAporte(g, m), 0);
     const gastosM = E ? E.gas : gastos;
-    const operativo = salario + cobros - gastosM - deuda - metasMes; // = "Resultado del mes" de Cargar
-    const tarjeta = cardPrev; // parte del déficit anterior que el sobrante no alcanzó a cubrir
-    const base = operativo - tarjeta;
+    const tdcDue = cardPrev; // tarjeta: déficits anteriores financiados con la TDC + lo que no se pagó de ella
+    const tdcPaid = E && E.tdcReg ? E.tdc : tdcDue;
+    const tarjeta = tdcPaid;
+    const operativo = salario + cobros - gastosM - deuda - metasMes - tdcPaid; // = "Resultado del mes" de Cargar
     const tgtR = salario * (i.reserva[m] || 0), tgtA = salario * (i.ahorro[m] || 0);
-    let reserva = 0, ahorro = 0, sobrante = 0, deficit = 0, cubierto = 0;
-    if (base >= 0) {
-      reserva = Math.min(base, tgtR); let r1 = base - reserva;
+    let reserva = 0, ahorro = 0, sobrante = 0, deficit = 0;
+    const cubierto = 0;
+    if (operativo >= 0) {
+      reserva = Math.min(operativo, tgtR); const r1 = operativo - reserva;
       ahorro = Math.min(r1, tgtA); sobrante = r1 - ahorro;
-      pool += sobrante; cardPrev = 0;
-    } else {
-      const falta = -base;
-      cubierto = Math.min(pool, falta); pool -= cubierto; // el sobrante acumulado cubre el déficit
-      const uncovered = falta - cubierto;
-      deficit = -uncovered; cardPrev = uncovered; // solo lo no cubierto pasa a tarjeta
-    }
+      pool += sobrante; // el superávit va a la reserva y queda guardado
+    } else deficit = operativo; // el déficit se financia con la tarjeta
+    cardPrev = Math.max(0, tdcDue - tdcPaid + (deficit < 0 ? -deficit : 0)); // se paga el mes siguiente
     ahorroAcum += ahorro; reservaAcum += reserva; metasAcum += metasMes; deudaPagAcum += deuda; if (deficit < 0) deficitAcum += -deficit;
     const sobranteAcum = pool;
     const patrimonioAcum = ahorroAcum + pool;
@@ -292,8 +291,8 @@ function runEngine(i, useReal) {
     const cobrosPend = cobrosSt.reduce((a, c) => a + Math.max(0, c.rem), 0);
     const cardCarry = cardPrev;
     const patrimonioNeto = patrimonioAcum + reservaAcum + cobrosPend - deudaTot - cardCarry;
-    const resultado = base >= 0 ? sobrante : deficit;
-    return { m, sc: h.sc, real: !!(E && E.reg), operativo, salario, cobros, gastos: gastosM, deuda, metasMes, tarjeta, cubierto, reserva, ahorro, sobrante, deficit, resultado, deudaTot, cobrosPend, cardCarry, patrimonioNeto, ahorroAcum, sobranteAcum, patrimonioAcum, deudaPagAcum, reservaAcum, metasAcum, deficitAcum };
+    const resultado = operativo >= 0 ? sobrante : deficit;
+    return { m, sc: h.sc, real: !!(E && E.reg), operativo, tdcDue, salario, cobros, gastos: gastosM, deuda, metasMes, tarjeta, cubierto, reserva, ahorro, sobrante, deficit, resultado, deudaTot, cobrosPend, cardCarry, patrimonioNeto, ahorroAcum, sobranteAcum, patrimonioAcum, deudaPagAcum, reservaAcum, metasAcum, deficitAcum };
   });
   const libre = anyIncome ? flujo.find((f) => f.deudaTot <= 0) : null;
   const colchon1 = anyIncome ? flujo.find((f) => f.patrimonioAcum >= gastos) : null;
@@ -802,11 +801,12 @@ function Donut({ data, size = 190, thick = 30, center, sub }) {
 }
 
 const TONE = { bad: ["var(--bad-soft)", "var(--critical)"], warn: ["var(--warn-soft)", "var(--caution)"], info: ["var(--pri-soft)", "var(--teal)"], good: ["var(--good-soft)", "var(--healthy)"] };
-function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, setActualMeta, setWaiveMeta, mode = "cargar", from = 0, to, goCargar }) {
+function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, setActualMeta, setWaiveMeta, setActualTdc, mode = "cargar", from = 0, to, goCargar }) {
   const [onlyPend, setOnlyPend] = useState(false);
   const [deuView, setDeuView] = useState("gen");
   const [cobView, setCobView] = useState("gen");
   const rolling = useMemo(() => runEngine(i, true), [i]);
+  const planFlujo = useMemo(() => runEngine(i).flujo, [i]);
   const [personD, setPersonD] = useState("__all__"), [personC, setPersonC] = useState("__all__"), [personM, setPersonM] = useState("__all__");
   const A = (i.actuals && i.actuals[rm]) || {};
   const nextM = Math.min(rm + 1, H - 1);
@@ -836,16 +836,19 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   const cRows = provRows(i.porCobrar, "cobrosProv", "cp", rm);
   const metaRowsM = (m) => { const mm = (i.actuals && i.actuals[m]) || {}; return i.metas.map((g) => { const base = metaAporte(g, m), carry = carryMeta(i.actuals, g, m), aju = Math.max(0, base + carry), reg = !!(mm.mt && mm.mt[g.id] !== undefined), waived = !!(mm.wv && mm.wv.mt && mm.wv.mt[g.id]); return { g, n: g.n, base, carry, aju, reg, waived, real: reg ? +mm.mt[g.id] || 0 : null }; }).filter((r) => r.aju > 0 || r.reg || Math.abs(r.carry) > 1); };
   const mRows = metaRowsM(rm);
+  const fRm = rolling.flujo[rm] || {};
+  const tdcDue = fRm.tdcDue || 0, tdcReg = A.tdc !== undefined && A.tdc !== null, tdcReal = tdcReg ? +A.tdc || 0 : tdcDue;
+  const hasTdc = tdcDue > 0.5 || tdcReg, prevM = Math.max(0, rm - 1);
   const gRows = i.gastosItems.map((g) => { const reg = !!(A.g && A.g[g.id] !== undefined); return { id: g.id, n: g.n, proj: +g.m || 0, reg, real: reg ? +A.g[g.id] || 0 : +g.m || 0 }; });
   const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
   // Lo pendiente cuenta al valor del plan, en todos los rubros por igual
   const pG = sum(gRows, (r) => r.proj), eG = sum(gRows, (r) => r.real);
-  const pD = sum(dRows, (r) => r.aju), eD = sum(dRows, (r) => (r.reg ? r.real : r.aju));
+  const pD = sum(dRows, (r) => r.aju) + (hasTdc ? tdcDue : 0), eD = sum(dRows, (r) => (r.reg ? r.real : r.aju)) + (hasTdc ? tdcReal : 0);
   const pC = sum(cRows, (r) => r.aju), eC = sum(cRows, (r) => (r.reg ? r.real : r.aju));
   const pM = sum(mRows, (r) => r.aju), eM = sum(mRows, (r) => (r.reg ? r.real : r.aju));
   const projRes = projIng + pC - pG - pD - pM, estRes = realIng + eC - eG - eD - eM;
-  const total = 1 + gRows.length + dRows.length + cRows.length + mRows.length;
-  const done = (ingReg ? 1 : 0) + gRows.filter((r) => r.reg).length + dRows.filter((r) => r.reg).length + cRows.filter((r) => r.reg).length + mRows.filter((r) => r.reg).length;
+  const total = 1 + gRows.length + dRows.length + cRows.length + mRows.length + (hasTdc ? 1 : 0);
+  const done = (ingReg ? 1 : 0) + gRows.filter((r) => r.reg).length + dRows.filter((r) => r.reg).length + cRows.filter((r) => r.reg).length + mRows.filter((r) => r.reg).length + (hasTdc && tdcReg ? 1 : 0);
   const pend = total - done, pctDone = Math.round((done / total) * 100);
 
   // Avisos en lenguaje claro, con nombre propio
@@ -862,6 +865,9 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   shortC.slice(0, 3).forEach((r) => ins.push({ k: "warn", t: `${r.n} no te pagó ${money(r.aju - r.real)} (${r.item.n}). Lo esperás en ${mlabel(nextM)}.` }));
   cRows.filter((r) => r.reg && r.real > r.aju + 1).slice(0, 2).forEach((r) => ins.push({ k: "good", t: `${r.n} te pagó ${money(r.real - r.aju)} más de lo previsto.` }));
   gRows.filter((r) => r.reg && r.real > r.proj + 1).sort((a, b) => (b.real - b.proj) - (a.real - a.proj)).slice(0, 2).forEach((r) => ins.push({ k: "warn", t: `Gastaste ${money(r.real - r.proj)} más de lo previsto en ${r.n}.` }));
+  if (tdcReg && tdcReal < tdcDue - 1) ins.push({ k: "bad", t: `Pagaste ${money(tdcDue - tdcReal)} menos de la tarjeta: queda como deuda para ${mlabel(nextM)}.` });
+  if ((fRm.operativo || 0) < -1 && rm < H - 1) ins.push({ k: "bad", t: `${mlabel(rm)} cierra con déficit de ${money(-fRm.operativo)}: se financia con la tarjeta y se paga en ${mlabel(nextM)}.` });
+  if ((fRm.sobrante || 0) > 1) ins.push({ k: "good", t: `Te sobran ${money(fRm.sobrante)} después de impuestos y ahorro: van a tu reserva.` });
   const shortM = mRows.filter((r) => r.reg && !r.waived && r.real < r.aju - 1);
   shortM.forEach((r) => ins.push({ k: "warn", t: `Apartaste ${money(r.aju - r.real)} menos de lo previsto para ${r.n}. Se suma a ${mlabel(nextM)} para llegar a tiempo.` }));
   mRows.filter((r) => r.reg && r.real > r.aju + 1).forEach((r) => ins.push({ k: "good", t: `Apartaste ${money(r.real - r.aju)} de más para ${r.n}: el mes que viene te toca menos.` }));
@@ -905,13 +911,13 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
       <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-.02em", color: estRes < 0 ? P.critical : P.ink }}>{money(estRes)}</span>
       <span style={{ fontSize: 14, color: P.muted }}>Plan {money(projRes)} · <b style={{ color: estRes >= projRes ? P.healthy : P.critical }}>{Math.abs(estRes - projRes) < 1 ? "igual al plan" : `${estRes > projRes ? "▲" : "▼"} ${money(Math.abs(estRes - projRes))}`}</b></span>
       {pend > 0 && <span style={{ fontSize: 13, color: P.muted }}>Los {pend} pendientes se cuentan al valor del plan hasta que los cargues.</span>}
-      {(() => { const f = rolling.flujo[rm] || {}; const L = (l, v, c) => <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><span>{l}</span><span style={{ color: c || P.muted }}>{v}</span></div>; return (
+      {(() => { const f = rolling.flujo[rm] || {}; const L = (l, v) => <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><span>{l}</span><span>{v}</span></div>; return (
         <div style={{ borderTop: `1px solid ${P.faint}`, marginTop: 6, paddingTop: 8, display: "grid", gap: 4, fontSize: 13, color: P.muted }}>
-          {f.tarjeta > 0 && L("Déficit del mes anterior", "−" + money(f.tarjeta), P.critical)}
-          {f.cubierto > 0 && L("Cubierto con sobrantes anteriores", "+" + money(f.cubierto))}
           {f.reserva > 0 && L("Reserva de impuestos", "−" + money(f.reserva))}
           {f.ahorro > 0 && L("Ahorro", "−" + money(f.ahorro))}
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, color: P.ink, fontWeight: 600 }}><span>{(f.resultado || 0) < 0 ? "Déficit: pasa a tarjeta" : "Queda libre"}</span><span style={{ color: (f.resultado || 0) < 0 ? P.critical : P.ink }}>{money(f.resultado || 0)}</span></div>
+          {(f.resultado || 0) < 0
+            ? <div style={{ display: "flex", justifyContent: "space-between", gap: 10, color: P.critical, fontWeight: 600 }}><span>Déficit: va a la tarjeta de {mlabel(Math.min(H - 1, rm + 1))}</span><span>{money(f.resultado)}</span></div>
+            : <div style={{ display: "flex", justifyContent: "space-between", gap: 10, color: P.ink, fontWeight: 600 }}><span>Va a tu reserva</span><span>{money(f.resultado || 0)}</span></div>}
         </div>); })()}
     </section>
   );
@@ -955,6 +961,12 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
       {nextD.length > 6 && <span style={{ fontSize: 12, color: P.muted }}>y {nextD.length - 6} más…</span>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 12 }}><span style={{ fontSize: 13, fontWeight: 600, color: P.muted }}>Cobros esperados</span><b style={{ fontSize: 15 }}>{money(sum(nextC, (r) => r.aju))}</b></div>
       {nextC.length ? nextList(nextC.slice(0, 6), "cobró") : <span style={{ fontSize: 13, color: P.muted }}>Sin cobros programados.</span>}
+      {(rolling.flujo[nextM] || {}).tdcDue > 0.5 && rm < H - 1 && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 0", borderTop: `1px solid ${P.faint}` }}>
+          <span style={{ display: "grid", gap: 1 }}><span style={{ fontSize: 14, fontWeight: 500 }}>Tarjeta de crédito</span><span style={{ fontSize: 12, color: P.caution }}>Déficit financiado en {mlabel(rm)}</span></span>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>{money(rolling.flujo[nextM].tdcDue)}</span>
+        </div>
+      )}
       {nextMt.length > 0 && (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 12 }}><span style={{ fontSize: 13, fontWeight: 600, color: P.muted }}>Aportes a metas</span><b style={{ fontSize: 15 }}>{money(sum(nextMt, (r) => r.aju))}</b></div>
@@ -997,9 +1009,9 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
     const idx = []; for (let m = from; m <= tTo; m++) idx.push(m);
     const labels = idx.map(mlabel);
     const gTot = sum(i.gastosItems, (g) => +g.m || 0);
-    const hasReal = (m) => { const mm = i.actuals && i.actuals[m]; return !!(mm && (mm.ingreso != null || ["g", "d", "c", "dp", "cp", "mt"].some((k) => mm[k] && Object.keys(mm[k]).length))); };
-    const projResMes = (m) => (+i.ingreso[scOf(m)] || 0) + sum(i.porCobrar, (c) => (c.cobros || [])[m] || 0) - gTot - sum(i.deudas, (d) => (d.pagos || [])[m] || 0) - sum(i.metas, (g) => metaAporte(g, m));
-    const realResMes = (m) => { const mm = (i.actuals && i.actuals[m]) || {}; const ing = mm.ingreso != null ? +mm.ingreso : (+i.ingreso[scOf(m)] || 0); const gas = sum(i.gastosItems, (g) => (mm.g && mm.g[g.id] !== undefined ? +mm.g[g.id] : +g.m || 0)); return ing + sum(i.porCobrar, (c) => realCob(m, c.id)) - gas - sum(i.deudas, (d) => realDebt(m, d.id)) - sum(i.metas, (g) => (mm.mt && +mm.mt[g.id]) || 0); };
+    const hasReal = (m) => { const mm = i.actuals && i.actuals[m]; return !!(mm && (mm.ingreso != null || mm.tdc != null || ["g", "d", "c", "dp", "cp", "mt"].some((k) => mm[k] && Object.keys(mm[k]).length))); };
+    const projResMes = (m) => (planFlujo[m] || {}).operativo || 0;
+    const realResMes = (m) => (rolling.flujo[m] || {}).operativo || 0;
     const cargados = idx.filter(hasReal);
     const lastReal = cargados.length ? cargados[cargados.length - 1] : null;
     const resReal = sum(cargados, realResMes), resPlan = sum(cargados, projResMes);
@@ -1138,8 +1150,19 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
         )}
         <Panel eb="Gastos" title="Gastos del mes"><div className="tblw"><RealTabla rows={gRows} kind="g" rm={rm} setActual={setActual} actuals={i.actuals} onlyPend={onlyPend} /></div></Panel>
         <Panel eb="Deudas" title="Pagos de deuda">
+          {hasTdc && !(onlyPend && tdcReg) && (
+            <div className="tblw" style={{ marginBottom: 8 }}><table className="tbl"><thead><tr><th>Tarjeta de crédito</th><th>Sugerido</th><th></th><th>Real</th><th>Δ</th></tr></thead><tbody>
+              <tr style={{ background: tdcReg ? (Math.abs(tdcReal - tdcDue) < 1 ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)" }}>
+                <td>{tdcReg ? "✓ " : "○ "}Pago de tarjeta<div style={{ fontSize: 12, color: P.muted }}>Déficit de {mlabel(prevM)} financiado con la tarjeta</div></td>
+                <td className="mono" style={{ color: P.muted }}>{money(tdcDue)}</td>
+                <td><button title="Pagué lo sugerido" onClick={() => setActualTdc(rm, Math.round(tdcDue * 100) / 100)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 6, fontSize: 13, padding: "4px 9px" }}>=</button></td>
+                <td><input className="si" style={{ width: 104 }} type="number" placeholder="—" aria-label="Pago real de tarjeta" value={tdcReg ? A.tdc : ""} onChange={(e) => setActualTdc(rm, e.target.value === "" ? null : +e.target.value)} /></td>
+                <td className="mono">{tdcReg ? <RealDelta pos real={tdcReal} proj={tdcDue} /> : <span style={{ color: P.caution, fontSize: 12 }}>pendiente</span>}</td>
+              </tr>
+            </tbody></table></div>
+          )}
           <div className="tblw"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} onlyPend={onlyPend} /></div>
-          {dRows.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Sin pagos programados este mes.</div>}
+          {dRows.length === 0 && !hasTdc && <div style={{ fontSize: 13, color: P.muted }}>Sin pagos programados este mes.</div>}
           <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>El plan incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin pagar en meses ya cargados. Si acordaste pagar menos, usá <b>cerrar saldo</b>.</div>
         </Panel>
         <Panel eb="Cuentas por cobrar" title="Cobros del mes">
@@ -1202,6 +1225,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const setWaive = (m, kind, itemId, prov, on) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { ...(acts[m] || {}) }; const wv = { ...(cur.wv || {}) }; const kk = kind === "d" ? "dp" : "cp"; const grp = { ...(wv[kk] || {}) }; const it = { ...(grp[itemId] || {}) }; if (on) it[prov] = true; else delete it[prov]; grp[itemId] = it; wv[kk] = grp; cur.wv = wv; acts[m] = cur; return { ...x, actuals: acts }; });
   const setActualMeta = (m, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { ...(acts[m] || {}) }; const grp = { ...(cur.mt || {}) }; if (val === null) delete grp[id]; else grp[id] = val; cur.mt = grp; acts[m] = cur; return { ...x, actuals: acts }; });
   const setWaiveMeta = (m, id, on) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { ...(acts[m] || {}) }; const wv = { ...(cur.wv || {}) }; const grp = { ...(wv.mt || {}) }; if (on) grp[id] = true; else delete grp[id]; wv.mt = grp; cur.wv = wv; acts[m] = cur; return { ...x, actuals: acts }; });
+  const setActualTdc = (m, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { ...(acts[m] || {}) }; if (val === null) delete cur.tdc; else cur.tdc = val; acts[m] = cur; return { ...x, actuals: acts }; });
   const [newCat, setNewCat] = useState("");
 
   const updInp = (fn) => setProfiles((ps) => ps.map((p) => (p.id === activeId ? { ...p, inp: fn(p.inp) } : p)));
@@ -1272,7 +1296,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const deuTotAtMes = r.flujo[deuMes]?.deudaTot || 0;
   const deuPagTot = r.flujo[deuMes]?.deudaPagAcum || 0;
 
-  const rvProps = { i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, setActualMeta, setWaiveMeta };
+  const rvProps = { i, rm, setRm, setActual, setActualIng, setActualProv, setWaive, setActualMeta, setWaiveMeta, setActualTdc };
   return (
     <div className={"app" + (theme === "dark" ? " dark" : "")} style={{ background: P.paper, color: P.ink }} onFocus={(e) => { if (e.target.tagName === "INPUT" && e.target.type === "number") e.target.select(); }}>
       <style>{CSS}</style>
@@ -1538,7 +1562,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                         { name: "Reserva impuestos", data: fl.map((f) => f.reservaAcum || 0), color: P.gold, dashed: true },
                       ]} />
                       <div className="kpis" style={{ marginTop: 10 }}>
-                        {[["Ahorro definido", fT.ahorroAcum], ["Sobrante libre", fT.sobranteAcum], ["Reserva impuestos", fT.reservaAcum], ["Total a " + mlabel(anaTo), (fT.ahorroAcum || 0) + (fT.sobranteAcum || 0) + (fT.reservaAcum || 0)]].map(([l, v]) => (
+                        {[["Ahorro definido", fT.ahorroAcum], ["Reserva (sobrantes)", fT.sobranteAcum], ["Reserva impuestos", fT.reservaAcum], ["Total a " + mlabel(anaTo), (fT.ahorroAcum || 0) + (fT.sobranteAcum || 0) + (fT.reservaAcum || 0)]].map(([l, v]) => (
                           <div key={l} style={{ background: P.faint, borderRadius: 10, padding: "8px 10px" }}><div style={{ fontSize: 12, color: P.muted }}>{l}</div><b style={{ fontSize: 15 }}>{money(v || 0)}</b></div>
                         ))}
                       </div>
@@ -1561,7 +1585,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                     </div>
                     <TChart height={200} labels={fl.map((f) => mlabel(f.m))} series={[{ name: "Patrimonio neto", data: fl.map((f) => f.patrimonioNeto || 0), color: P.teal, dots: true, area: true }]} />
                     <div className="kpis4">
-                      {[["Ahorro y sobrante", fT.patrimonioAcum], ["Reserva impuestos", fT.reservaAcum], ["Te deben", fT.cobrosPend], ["Debés", -(pas)]].map(([l, v]) => (
+                      {[["Ahorro y reserva", fT.patrimonioAcum], ["Reserva impuestos", fT.reservaAcum], ["Te deben", fT.cobrosPend], ["Debés", -(pas)]].map(([l, v]) => (
                         <div key={l} style={{ background: P.faint, borderRadius: 10, padding: "8px 10px" }}><div style={{ fontSize: 12, color: P.muted }}>{l}</div><b style={{ fontSize: 15, color: (v || 0) < 0 ? P.critical : P.ink }}>{money(v || 0)}</b></div>
                       ))}
                     </div>
@@ -1579,11 +1603,11 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                 return (
                   <>
                     <div style={{ fontSize: 13, color: P.muted, marginBottom: 10, lineHeight: 1.5 }}>
-                      <b style={{ color: P.ink }}>Resultado del mes</b> es el mismo número que ves en Cargar. A eso se le resta el déficit del mes anterior, la reserva de impuestos y el ahorro: lo que <b style={{ color: P.ink }}>queda</b> se acumula, y si da negativo pasa a tarjeta el mes siguiente.
+                      <b style={{ color: P.ink }}>Resultado del mes</b> es el mismo número que ves en Cargar, y ya incluye el pago de la tarjeta. Si es positivo, se separa la reserva de impuestos y el ahorro, y lo que sobra <b style={{ color: P.ink }}>va a tu reserva</b>. Si es negativo, ese déficit se financia con la tarjeta y aparece como pago en el mes siguiente.
                     </div>
                     <div className="tblw">
                       <table className="tbl">
-                        <thead><tr><th>Mes</th><th>Ingreso</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Metas</th><th>Resultado del mes</th><th>Déficit anterior</th><th>Reserva</th><th>Ahorro</th><th>Queda</th></tr></thead>
+                        <thead><tr><th>Mes</th><th>Ingreso</th><th>Cobros</th><th>Gastos</th><th>Deuda</th><th>Tarjeta</th><th>Metas</th><th>Resultado del mes</th><th>Reserva impuestos</th><th>Ahorro</th><th>Saldo final</th></tr></thead>
                         <tbody>
                           {fl.map((f) => (
                             <tr key={f.m} style={{ borderBottom: `1px solid ${P.faint}` }}>
@@ -1597,19 +1621,19 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
                               <td>{pos(f.cobros)}</td>
                               <td style={{ color: P.muted }}>{neg(f.gastos)}</td>
                               <td style={{ color: P.muted }}>{neg(f.deuda)}</td>
+                              <td style={{ color: f.tarjeta ? P.critical : P.muted }}>{neg(f.tarjeta)}</td>
                               <td style={{ color: P.muted }}>{neg(f.metasMes)}</td>
                               <td style={{ fontWeight: 600, color: f.operativo < 0 ? P.critical : P.ink }}>{money(f.operativo)}</td>
-                              <td style={{ color: f.tarjeta ? P.critical : P.muted }}>{neg(f.tarjeta)}</td>
                               <td style={{ color: P.muted }}>{neg(f.reserva)}</td>
                               <td style={{ color: P.muted }}>{neg(f.ahorro)}</td>
-                              <td style={{ fontWeight: 700, color: f.resultado < 0 ? P.critical : P.ink }}>{money(f.resultado)} <span style={{ fontSize: 11, fontWeight: 400, color: P.muted }}>{f.deficit < 0 ? "a tarjeta" : f.cubierto > 0 ? "cubierto" : ""}</span></td>
+                              <td style={{ fontWeight: 700, color: f.resultado < 0 ? P.critical : P.ink }}>{money(f.resultado)} <span style={{ fontSize: 11, fontWeight: 400, color: P.muted }}>{f.deficit < 0 ? "a tarjeta" : f.resultado > 0 ? "a reserva" : ""}</span></td>
                             </tr>
                           ))}
                           <tr style={{ borderTop: `2px solid ${P.line}`, fontWeight: 600 }}>
                             <td>Total</td>
-                            <td>{money(S("salario"))}</td><td>{pos(S("cobros"))}</td><td>{neg(S("gastos"))}</td><td>{neg(S("deuda"))}</td><td>{neg(S("metasMes"))}</td>
+                            <td>{money(S("salario"))}</td><td>{pos(S("cobros"))}</td><td>{neg(S("gastos"))}</td><td>{neg(S("deuda"))}</td><td>{neg(S("tarjeta"))}</td><td>{neg(S("metasMes"))}</td>
                             <td style={{ color: S("operativo") < 0 ? P.critical : P.ink }}>{money(S("operativo"))}</td>
-                            <td>{neg(S("tarjeta"))}</td><td>{neg(S("reserva"))}</td><td>{neg(S("ahorro"))}</td>
+                            <td>{neg(S("reserva"))}</td><td>{neg(S("ahorro"))}</td>
                             <td style={{ color: S("resultado") < 0 ? P.critical : P.ink }}>{money(S("resultado"))}</td>
                           </tr>
                         </tbody>
