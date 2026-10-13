@@ -454,18 +454,22 @@ function carryProv(actuals, item, listKey, key, prov, uptoM) {
   for (let k = 0; k < uptoM; k++) {
     const mm = actuals && actuals[k];
     const grp = mm && mm[key] && mm[key][item.id];
-    if (!grp || grp[prov] === undefined) continue;
-    const pr = ((item[listKey] || [])[k] || []).filter((p) => p.prov === prov).reduce((a, p) => a + (+p.monto || 0), 0);
-    c += pr - (+grp[prov] || 0);
+    if (grp && grp[prov] !== undefined) {
+      const pr = ((item[listKey] || [])[k] || []).filter((p) => p.prov === prov).reduce((a, p) => a + (+p.monto || 0), 0);
+      c += pr - (+grp[prov] || 0);
+    }
+    // Si en ese mes se condonó el saldo, el arrastre se cierra ahí
+    if (mm && mm.wv && mm.wv[key] && mm.wv[key][item.id] && mm.wv[key][item.id][prov]) c = 0;
   }
   return c;
 }
-function RealProvTabla({ items, kind, rm, actuals, setActualProv }) {
+function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive }) {
   const key = kind === "d" ? "dp" : "cp";
   const listKey = kind === "d" ? "pagosProv" : "cobrosProv";
   const totKey = kind === "d" ? "pagos" : "cobros";
   const A = actuals && actuals[rm] ? actuals[rm] : {};
   const grp = A[key] || {};
+  const isWaived = (m, kd, id, prov) => { const mm = actuals && actuals[m]; const kk = kd === "d" ? "dp" : "cp"; return !!(mm && mm.wv && mm.wv[kk] && mm.wv[kk][id] && mm.wv[kk][id][prov]); };
   return (
     <table className="tbl">
       <thead><tr><th>{kind === "d" ? "Deuda / proveedor" : "Cobro / pagador"}</th><th>Proy.</th><th></th><th>Real</th><th>Δ</th></tr></thead>
@@ -498,14 +502,20 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv }) {
                 <td className="mono"><RealDelta real={realTot} proj={projTot} /></td>
               </tr>
               {names.map((n) => {
-                const pr = ajuFor(n), car = carryFor(n), re = +realFor(n) || 0, reg = regFor(n), match = reg && Math.abs(re - pr) < 1;
+                const base = projFor(n), car = carryFor(n), pr = ajuFor(n), re = +realFor(n) || 0, reg = regFor(n), match = reg && Math.abs(re - pr) < 1;
+                const pend = reg ? pr - re : 0;
                 return (
                   <tr key={n} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)" }}>
-                    <td style={{ paddingLeft: 16, color: P.muted }}>{reg ? (match ? "✓ " : "• ") : "○ "}{n}</td>
-                    <td className="mono" style={{ color: P.muted }}>{money(pr)}{Math.abs(car) > 1 && <span style={{ color: P.caution, fontSize: 10 }} title="Incluye lo no cumplido de meses anteriores"> ({car > 0 ? "+" : "−"}{money(Math.abs(car))})</span>}</td>
+                    <td style={{ paddingLeft: 16, color: P.muted }}>{reg ? (match ? "✓ " : "• ") : "○ "}{n}
+                      {reg && pend > 1 && <button title="No se va a cobrar/pagar: cerrar este saldo y no arrastrarlo" onClick={() => setWaive(rm, kind, it.id, n, true)} style={{ marginLeft: 6, cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.caution, borderRadius: 4, fontSize: 9, padding: "0 5px" }}>cerrar saldo</button>}
+                      {isWaived(rm, kind, it.id, n) && <span style={{ marginLeft: 6, fontSize: 9, color: P.healthy }}>saldo cerrado <button onClick={() => setWaive(rm, kind, it.id, n, false)} style={{ cursor: "pointer", border: "none", background: "transparent", color: P.muted, fontSize: 9, textDecoration: "underline" }}>deshacer</button></span>}
+                    </td>
+                    <td className="mono" style={{ color: P.muted }}>{money(pr)}
+                      {Math.abs(car) > 1 && <div style={{ fontSize: 9, color: P.caution }}>{money(base)} prog. {car > 0 ? "+" : "−"} {money(Math.abs(car))} arr.</div>}
+                    </td>
                     <td><button title="Usar lo proyectado" onClick={() => setActualProv(rm, kind, it.id, n, pr)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 11, padding: "1px 6px" }}>=</button></td>
-                    <td><input className="si" style={{ width: 82 }} type="number" value={realFor(n)} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? 0 : +e.target.value)} /></td>
-                    <td className="mono"><RealDelta real={re} proj={pr} /></td>
+                    <td><input className="si" style={{ width: 82 }} type="number" placeholder="—" value={reg ? realFor(n) : ""} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? null : +e.target.value)} /></td>
+                    <td className="mono">{reg ? <RealDelta real={re} proj={pr} /> : <span style={{ color: P.caution, fontSize: 10 }}>pendiente</span>}</td>
                   </tr>
                 );
               })}
@@ -528,8 +538,8 @@ function RealTabla({ rows, kind, rm, setActual, actuals, pend }) {
           <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "rgba(214,164,62,0.16)" }}>
             <td>{reg ? (match ? "✓ " : "• ") : "○ "}{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
             <td><button title="Usar lo proyectado" onClick={() => setActual(rm, kind, r.id, r.proj)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 11, padding: "1px 6px" }}>=</button></td>
-            <td><input className="si" style={{ width: 82 }} type="number" value={r.real} onChange={(e) => setActual(rm, kind, r.id, e.target.value === "" ? 0 : +e.target.value)} /></td>
-            <td className="mono"><RealDelta real={r.real} proj={r.proj} /></td>
+            <td><input className="si" style={{ width: 82 }} type="number" placeholder="—" value={reg ? r.real : ""} onChange={(e) => setActual(rm, kind, r.id, e.target.value === "" ? null : +e.target.value)} /></td>
+            <td className="mono">{reg ? <RealDelta real={r.real} proj={r.proj} /> : <span style={{ color: P.caution, fontSize: 10 }}>pendiente</span>}</td>
             {pend && <td className="mono" style={{ color: pend(r.id) > 0 ? (kind === "d" ? P.critical : P.caution) : P.healthy }}>{money(pend(r.id))}</td>}
           </tr>);
       })}
@@ -594,7 +604,7 @@ function RealToggle({ v, set }) {
     </span>
   );
 }
-function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
+function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWaive }) {
   const A = (i.actuals && i.actuals[rm]) || {};
   const projIng = i.ingreso[i.horizonte[rm] ? i.horizonte[rm].sc : "e2"] || 0;
   const realIng = A.ingreso != null ? A.ingreso : projIng;
@@ -730,11 +740,11 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
       </Panel>
 
       <Panel eb="Gastos" title="Detalle real por partida"><RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} actuals={i.actuals} /></Panel>
-      <Panel eb="Deuda" title="Detalle real por proveedor"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /><div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>La columna Proy. incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin pagar en meses ya registrados se suma a este mes.</div></Panel>
+      <Panel eb="Deuda" title="Detalle real por proveedor"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} /><div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>La columna Proy. incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin pagar en meses ya registrados se suma a este mes.</div></Panel>
       <Panel eb="Avance de deuda" title={deuView === "gen" ? "Total vs pagado, por deuda" : "Total vs pagado, por proveedor"} right={<RealToggle v={deuView} set={setDeuView} />}>
         <GBars groups={deuView === "gen" ? genGroups(i.deudas, "saldo", pagadoHasta) : provGroups(i.deudas, "pagosProv", "dp")} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(rm)}`} />
       </Panel>
-      <Panel eb="Cuentas por cobrar" title="Detalle real por pagador"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /><div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>La columna Proy. incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin cobrar en meses ya registrados se suma a este mes.</div></Panel>
+      <Panel eb="Cuentas por cobrar" title="Detalle real por pagador"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} /><div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>La columna Proy. incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin cobrar en meses ya registrados se suma a este mes.</div></Panel>
       <Panel eb="Avance de cobros" title={cobView === "gen" ? "Total vs cobrado, por cuenta" : "Total vs cobrado, por pagador"} right={<RealToggle v={cobView} set={setCobView} />}>
         <GBars groups={cobView === "gen" ? genGroups(i.porCobrar, "monto", cobradoHasta) : provGroups(i.porCobrar, "cobrosProv", "cp")} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(rm)}`} />
       </Panel>
@@ -765,9 +775,10 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const [pieOff, setPieOff] = useState({});
   const [deuProv, setDeuProv] = useState("__all__"), [cobProv, setCobProv] = useState("__all__");
   const [view, setView] = useState("proj"), [rm, setRm] = useState(0);
-  const setActual = (m, kind, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur[kind] = { ...(cur[kind] || {}), [id]: val }; acts[m] = cur; return { ...x, actuals: acts }; });
+  const setActual = (m, kind, id, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; const grp = { ...(cur[kind] || {}) }; if (val === null) delete grp[id]; else grp[id] = val; cur[kind] = grp; acts[m] = cur; return { ...x, actuals: acts }; });
   const setActualIng = (m, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, ...(acts[m] || {}) }; cur.ingreso = val; acts[m] = cur; return { ...x, actuals: acts }; });
-  const setActualProv = (m, kind, itemId, prov, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, dp: {}, cp: {}, ...(acts[m] || {}) }; const key = kind === "d" ? "dp" : "cp"; const grp = { ...(cur[key] || {}) }; const it = { ...(grp[itemId] || {}) }; it[prov] = val; grp[itemId] = it; cur[key] = grp; acts[m] = cur; return { ...x, actuals: acts }; });
+  const setActualProv = (m, kind, itemId, prov, val) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { g: {}, d: {}, c: {}, dp: {}, cp: {}, ...(acts[m] || {}) }; const key = kind === "d" ? "dp" : "cp"; const grp = { ...(cur[key] || {}) }; const it = { ...(grp[itemId] || {}) }; if (val === null) delete it[prov]; else it[prov] = val; grp[itemId] = it; cur[key] = grp; acts[m] = cur; return { ...x, actuals: acts }; });
+  const setWaive = (m, kind, itemId, prov, on) => updInp((x) => { const acts = { ...(x.actuals || {}) }; const cur = { ...(acts[m] || {}) }; const wv = { ...(cur.wv || {}) }; const kk = kind === "d" ? "dp" : "cp"; const grp = { ...(wv[kk] || {}) }; const it = { ...(grp[itemId] || {}) }; if (on) it[prov] = true; else delete it[prov]; grp[itemId] = it; wv[kk] = grp; cur.wv = wv; acts[m] = cur; return { ...x, actuals: acts }; });
   const [newCat, setNewCat] = useState("");
 
   const updInp = (fn) => setProfiles((ps) => ps.map((p) => (p.id === activeId ? { ...p, inp: fn(p.inp) } : p)));
@@ -869,7 +880,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
           </div>
         </header>
 
-        {view === "real" && <RealView i={i} rm={rm} setRm={setRm} setActual={setActual} setActualIng={setActualIng} setActualProv={setActualProv} />}
+        {view === "real" && <RealView i={i} rm={rm} setRm={setRm} setActual={setActual} setActualIng={setActualIng} setActualProv={setActualProv} setWaive={setWaive} />}
         {view === "proj" && (
         <div className="gmain">
           {/* ── INPUTS ── */}
