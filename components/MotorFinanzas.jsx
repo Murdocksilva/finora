@@ -447,6 +447,19 @@ function GBars({ groups, color, lblA, lblB }) {
     </div>
   );
 }
+// Arrastre: lo que se proyectó pagar/cobrar en meses anteriores y no se cumplió,
+// se suma a lo que corresponde este mes. Solo cuenta meses ya registrados.
+function carryProv(actuals, item, listKey, key, prov, uptoM) {
+  let c = 0;
+  for (let k = 0; k < uptoM; k++) {
+    const mm = actuals && actuals[k];
+    const grp = mm && mm[key] && mm[key][item.id];
+    if (!grp || grp[prov] === undefined) continue;
+    const pr = ((item[listKey] || [])[k] || []).filter((p) => p.prov === prov).reduce((a, p) => a + (+p.monto || 0), 0);
+    c += pr - (+grp[prov] || 0);
+  }
+  return c;
+}
 function RealProvTabla({ items, kind, rm, actuals, setActualProv }) {
   const key = kind === "d" ? "dp" : "cp";
   const listKey = kind === "d" ? "pagosProv" : "cobrosProv";
@@ -455,32 +468,42 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv }) {
   const grp = A[key] || {};
   return (
     <table className="tbl">
-      <thead><tr><th>{kind === "d" ? "Deuda / proveedor" : "Cobro / pagador"}</th><th>Proy.</th><th>Real</th><th>Δ</th></tr></thead>
+      <thead><tr><th>{kind === "d" ? "Deuda / proveedor" : "Cobro / pagador"}</th><th>Proy.</th><th></th><th>Real</th><th>Δ</th></tr></thead>
       <tbody>
         {items.map((it) => {
           const names = Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean)));
           if (!names.length) names.push(kind === "d" ? "Proveedor 1" : "Pagador 1");
           const monthList = (it[listKey] || [])[rm] || [];
+          const itemGrp = grp[it.id] || {};
           const projFor = (name) => monthList.filter((p) => p.prov === name).reduce((a, p) => a + (+p.monto || 0), 0);
-          const realFor = (name) => (grp[it.id] || {})[name] || 0;
-          const projTot = (it[totKey] || [])[rm] || 0;
+          const carryFor = (name) => carryProv(actuals, it, listKey, key, name, rm);
+          const ajuFor = (name) => Math.max(0, projFor(name) + carryFor(name));
+          const realFor = (name) => itemGrp[name] || 0;
+          const regFor = (name) => itemGrp[name] !== undefined;
+          const projTot = names.reduce((a, n) => a + ajuFor(n), 0);
+          const carryTot = names.reduce((a, n) => a + carryFor(n), 0);
           const realTot = names.reduce((a, n) => a + (+realFor(n) || 0), 0);
           return (
             <React.Fragment key={it.id}>
               <tr style={{ borderTop: `1px solid ${P.line}` }}>
                 <td style={{ fontWeight: 600 }}>{it.n}</td>
-                <td className="mono" style={{ color: P.muted }}>{money(projTot)}</td>
+                <td className="mono" style={{ color: P.muted }}>{money(projTot)}{Math.abs(carryTot) > 1 && <span style={{ color: P.caution, fontSize: 10 }}> ({carryTot > 0 ? "+" : "−"}{money(Math.abs(carryTot))} arr.)</span>}</td>
+                <td></td>
                 <td className="mono" style={{ fontWeight: 600 }}>{money(realTot)}</td>
                 <td className="mono"><RealDelta real={realTot} proj={projTot} /></td>
               </tr>
-              {names.map((n) => (
-                <tr key={n} style={{ borderBottom: `1px solid ${P.faint}` }}>
-                  <td style={{ paddingLeft: 16, color: P.muted }}>{n}</td>
-                  <td className="mono" style={{ color: P.muted }}>{money(projFor(n))}</td>
-                  <td><input className="si" style={{ width: 82 }} type="number" value={realFor(n)} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? 0 : +e.target.value)} /></td>
-                  <td className="mono"><RealDelta real={+realFor(n) || 0} proj={projFor(n)} /></td>
-                </tr>
-              ))}
+              {names.map((n) => {
+                const pr = ajuFor(n), car = carryFor(n), re = +realFor(n) || 0, reg = regFor(n), match = reg && Math.abs(re - pr) < 1;
+                return (
+                  <tr key={n} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "transparent" }}>
+                    <td style={{ paddingLeft: 16, color: P.muted }}>{reg ? (match ? "✓ " : "• ") : ""}{n}</td>
+                    <td className="mono" style={{ color: P.muted }}>{money(pr)}{Math.abs(car) > 1 && <span style={{ color: P.caution, fontSize: 10 }} title="Incluye lo no cumplido de meses anteriores"> ({car > 0 ? "+" : "−"}{money(Math.abs(car))})</span>}</td>
+                    <td><button title="Usar lo proyectado" onClick={() => setActualProv(rm, kind, it.id, n, pr)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 11, padding: "1px 6px" }}>=</button></td>
+                    <td><input className="si" style={{ width: 82 }} type="number" value={realFor(n)} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? 0 : +e.target.value)} /></td>
+                    <td className="mono"><RealDelta real={re} proj={pr} /></td>
+                  </tr>
+                );
+              })}
             </React.Fragment>
           );
         })}
@@ -489,16 +512,22 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv }) {
   );
 }
 function RealDelta({ real, proj }) { const d = real - proj; if (Math.abs(d) < 1) return <span style={{ color: P.muted }}>=</span>; return <span style={{ color: d > 0 ? P.critical : P.healthy }}>{d > 0 ? "+" : "−"}{money(Math.abs(d))}</span>; }
-function RealTabla({ rows, kind, rm, setActual, pend }) {
+function RealTabla({ rows, kind, rm, setActual, actuals, pend }) {
+  const A = actuals && actuals[rm] ? actuals[rm] : {};
+  const gk = A[kind] || {};
   return (
-    <table className="tbl"><thead><tr><th>{kind === "g" ? "Partida" : kind === "d" ? "Deuda" : "Cobro"}</th><th>Proy.</th><th>Real</th><th>Δ</th>{pend && <th>Pend.</th>}</tr></thead>
-      <tbody>{rows.map((r) => (
-        <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}` }}>
-          <td>{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
-          <td><input className="si" style={{ width: 82 }} type="number" value={r.real} onChange={(e) => setActual(rm, kind, r.id, e.target.value === "" ? 0 : +e.target.value)} /></td>
-          <td className="mono"><RealDelta real={r.real} proj={r.proj} /></td>
-          {pend && <td className="mono" style={{ color: pend(r.id) > 0 ? (kind === "d" ? P.critical : P.caution) : P.healthy }}>{money(pend(r.id))}</td>}
-        </tr>))}
+    <table className="tbl"><thead><tr><th>{kind === "g" ? "Partida" : kind === "d" ? "Deuda" : "Cobro"}</th><th>Proy.</th><th></th><th>Real</th><th>Δ</th>{pend && <th>Pend.</th>}</tr></thead>
+      <tbody>{rows.map((r) => {
+        const reg = gk[r.id] !== undefined, match = reg && Math.abs(r.real - r.proj) < 1;
+        return (
+          <tr key={r.id} style={{ borderBottom: `1px solid ${P.faint}`, background: reg ? (match ? "rgba(79,170,136,0.20)" : "rgba(79,170,136,0.09)") : "transparent" }}>
+            <td>{reg ? (match ? "✓ " : "• ") : ""}{r.n}</td><td className="mono" style={{ color: P.muted }}>{money(r.proj)}</td>
+            <td><button title="Usar lo proyectado" onClick={() => setActual(rm, kind, r.id, r.proj)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 11, padding: "1px 6px" }}>=</button></td>
+            <td><input className="si" style={{ width: 82 }} type="number" value={r.real} onChange={(e) => setActual(rm, kind, r.id, e.target.value === "" ? 0 : +e.target.value)} /></td>
+            <td className="mono"><RealDelta real={r.real} proj={r.proj} /></td>
+            {pend && <td className="mono" style={{ color: pend(r.id) > 0 ? (kind === "d" ? P.critical : P.caution) : P.healthy }}>{money(pend(r.id))}</td>}
+          </tr>);
+      })}
       </tbody></table>
   );
 }
@@ -538,8 +567,9 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
   const realDebt = (m, id) => { const mm = i.actuals && i.actuals[m]; const g = mm && mm.dp && mm.dp[id]; if (g) return Object.values(g).reduce((a, v) => a + (+v || 0), 0); return (mm && mm.d && mm.d[id]) || 0; };
   const realCob = (m, id) => { const mm = i.actuals && i.actuals[m]; const g = mm && mm.cp && mm.cp[id]; if (g) return Object.values(g).reduce((a, v) => a + (+v || 0), 0); return (mm && mm.c && mm.c[id]) || 0; };
   const grows = i.gastosItems.map((it) => ({ id: it.id, n: it.n, proj: +it.m || 0, real: A.g && A.g[it.id] != null ? A.g[it.id] : (+it.m || 0) }));
-  const drows = i.deudas.map((d) => ({ id: d.id, n: d.n, proj: d.pagos?.[rm] || 0, real: realDebt(rm, d.id) }));
-  const crows = i.porCobrar.map((c) => ({ id: c.id, n: c.n, proj: c.cobros?.[rm] || 0, real: realCob(rm, c.id) }));
+  const ajuTot = (it, listKey, key) => { const names = Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean))); if (!names.length) return (it[listKey === "pagosProv" ? "pagos" : "cobros"] || [])[rm] || 0; return names.reduce((a, n) => { const pr = ((it[listKey] || [])[rm] || []).filter((p) => p.prov === n).reduce((s, p) => s + (+p.monto || 0), 0); return a + Math.max(0, pr + carryProv(i.actuals, it, listKey, key, n, rm)); }, 0); };
+  const drows = i.deudas.map((d) => ({ id: d.id, n: d.n, proj: ajuTot(d, "pagosProv", "dp"), real: realDebt(rm, d.id) }));
+  const crows = i.porCobrar.map((c) => ({ id: c.id, n: c.n, proj: ajuTot(c, "cobrosProv", "cp"), real: realCob(rm, c.id) }));
   const sum = (rows, k) => rows.reduce((a, r) => a + r[k], 0);
   const projG = sum(grows, "proj"), realG = sum(grows, "real"), projD = sum(drows, "proj"), realD = sum(drows, "real"), projC = sum(crows, "proj"), realC = sum(crows, "real");
   const projRes = projIng + projC - projG - projD, realRes = realIng + realC - realG - realD;
@@ -580,6 +610,27 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
         <div className="row"><span style={{ fontSize: 13, color: P.muted }}>Ingreso real</span><span className="mono" style={{ fontSize: 13, color: P.muted }}>proy {money(projIng)} → $<input className="num mono" type="number" value={realIng} onChange={(e) => setActualIng(rm, e.target.value === "" ? 0 : +e.target.value)} /></span></div>
       </Panel>
 
+      <Panel eb="Panorama del mes" title={`Cómo venís en ${mlabel(rm)}`}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          <div style={{ flex: "1 1 180px", background: P.faint, borderRadius: 8, padding: 12 }}>
+            <div style={{ fontSize: 11, color: P.muted }}>Resultado real</div>
+            <div className="mono" style={{ fontSize: 24, fontWeight: 700, color: realRes < 0 ? P.critical : P.healthy }}>{money(realRes)}</div>
+            <div style={{ fontSize: 11, color: P.muted }}>proy {money(projRes)} · <span style={{ color: (realRes - projRes) >= 0 ? P.healthy : P.critical }}>{(realRes - projRes) >= 0 ? "▲" : "▼"} {money(Math.abs(realRes - projRes))}</span></div>
+          </div>
+          {[["Ingreso", realIng, projIng, true], ["Gastos", realG, projG, false], ["Deuda pagada", realD, projD, false], ["Cobros", realC, projC, true]].map(([lbl, re, pr, pos], k) => {
+            const d = re - pr, good = pos ? d >= 0 : d <= 0, col = Math.abs(d) < 1 ? P.muted : (good ? P.healthy : P.critical);
+            return (
+              <div key={k} style={{ flex: "1 1 110px", background: P.faint, borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 10, color: P.muted }}>{lbl}</div>
+                <div className="mono" style={{ fontSize: 16, fontWeight: 600 }}>{money(re)}</div>
+                <div style={{ fontSize: 10, color: col }}>{Math.abs(d) < 1 ? "= proy" : `${d > 0 ? "▲" : "▼"} ${pct(pr > 0 ? Math.abs(d) / pr : 0)} vs proy`}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: realRes >= projRes ? P.healthy : P.critical }}>{realRes >= projRes ? "✓ Vas mejor que lo proyectado este mes." : "⚠ Vas por debajo de lo proyectado este mes."}</div>
+      </Panel>
+
       <Panel eb="Resumen del mes" title={`Proyectado vs real · ${mlabel(rm)}`}>
         <table className="tbl">
           <thead><tr><th>Rubro</th><th>Proy.</th><th>Real</th><th>Δ</th><th style={{ width: 84 }}>Real/Proy</th></tr></thead>
@@ -609,12 +660,12 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv }) {
         <div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>Barra clara = proyectado · barra de color = real. Verde: vas mejor que lo previsto; rojo: peor.</div>
       </Panel>
 
-      <Panel eb="Gastos" title="Detalle real por partida"><RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} /></Panel>
-      <Panel eb="Deuda" title="Detalle real por proveedor"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /></Panel>
+      <Panel eb="Gastos" title="Detalle real por partida"><RealTabla rows={grows} kind="g" rm={rm} setActual={setActual} actuals={i.actuals} /></Panel>
+      <Panel eb="Deuda" title="Detalle real por proveedor"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /><div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>La columna Proy. incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin pagar en meses ya registrados se suma a este mes.</div></Panel>
       <Panel eb="Avance de deuda" title={deuView === "gen" ? "Total vs pagado, por deuda" : "Total vs pagado, por proveedor"} right={<RealToggle v={deuView} set={setDeuView} />}>
         <GBars groups={deuView === "gen" ? genGroups(i.deudas, "saldo", pagadoHasta) : provGroups(i.deudas, "pagosProv", "dp")} color={P.critical} lblA="Deuda total" lblB={`Pagado a ${mlabel(rm)}`} />
       </Panel>
-      <Panel eb="Cuentas por cobrar" title="Detalle real por pagador"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /></Panel>
+      <Panel eb="Cuentas por cobrar" title="Detalle real por pagador"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} /><div style={{ fontSize: 10, color: P.muted, marginTop: 6 }}>La columna Proy. incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin cobrar en meses ya registrados se suma a este mes.</div></Panel>
       <Panel eb="Avance de cobros" title={cobView === "gen" ? "Total vs cobrado, por cuenta" : "Total vs cobrado, por pagador"} right={<RealToggle v={cobView} set={setCobView} />}>
         <GBars groups={cobView === "gen" ? genGroups(i.porCobrar, "monto", cobradoHasta) : provGroups(i.porCobrar, "cobrosProv", "cp")} color={P.healthy} lblA="Total a cobrar" lblB={`Cobrado a ${mlabel(rm)}`} />
       </Panel>
@@ -715,7 +766,7 @@ function Planner({ auth, initialData, onLogout, theme, toggleTheme }) {
   const deuPagTot = r.flujo[deuMes]?.deudaPagAcum || 0;
 
   return (
-    <div className={"app" + (theme === "dark" ? " dark" : "")} style={{ background: P.paper, color: P.ink }}>
+    <div className={"app" + (theme === "dark" ? " dark" : "")} style={{ background: P.paper, color: P.ink }} onFocus={(e) => { if (e.target.tagName === "INPUT" && e.target.type === "number") e.target.select(); }}>
       <style>{CSS}</style>
       <div className="wrap">
         {/* USER BAR */}
