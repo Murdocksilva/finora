@@ -188,6 +188,7 @@ function loadSaved() { try { if (typeof window !== "undefined" && window.localSt
 /* ─────────────── MOTOR ─────────────── */
 function monthEst(i, m) {
   const mm = (i.actuals && i.actuals[m]) || {};
+  const closed = m < openFrom(i.actuals);
   const sc = i.horizonte[m] ? i.horizonte[m].sc : "e2";
   const ingReg = mm.ingreso !== undefined && mm.ingreso !== null;
   let reg = ingReg;
@@ -201,16 +202,16 @@ function monthEst(i, m) {
       Array.from(new Set((it[listKey] || []).flat().map((p) => p && p.prov).filter(Boolean))).forEach((n) => {
         if (grp[n] !== undefined) { reg = true; t += +grp[n] || 0; return; }
         const base = ((it[listKey] || [])[m] || []).filter((p) => p.prov === n).reduce((s2, p) => s2 + (+p.monto || 0), 0);
-        t += Math.max(0, base + carryProv(i.actuals, it, listKey, key, n, m));
+        if (!closed) t += Math.max(0, base + carryProv(i.actuals, it, listKey, key, n, m));
       });
       per[it.id] = t;
     });
     return per;
   };
   const deuPer = prov(i.deudas, "pagosProv", "dp"), cobPer = prov(i.porCobrar, "cobrosProv", "cp");
-  const met = i.metas.reduce((a, g) => { const r = !!(mm.mt && mm.mt[g.id] !== undefined); if (r) reg = true; return a + (r ? +mm.mt[g.id] || 0 : Math.max(0, metaAporte(g, m) + carryMeta(i.actuals, g, m))); }, 0);
+  const met = i.metas.reduce((a, g) => { const r = !!(mm.mt && mm.mt[g.id] !== undefined); if (r) reg = true; return a + (r ? +mm.mt[g.id] || 0 : closed ? 0 : Math.max(0, metaAporte(g, m) + carryMeta(i.actuals, g, m))); }, 0);
   const tdcReg = mm.tdc !== undefined && mm.tdc !== null; if (tdcReg) reg = true;
-  return { ing, gas, deuPer, cobPer, met, reg, tdcReg, tdc: tdcReg ? +mm.tdc || 0 : 0 };
+  return { ing, gas, deuPer, cobPer, met, reg, closed, tdcReg, tdc: tdcReg ? +mm.tdc || 0 : 0 };
 }
 function runEngine(i, useReal) {
   const gastos = i.gastosItems.reduce((a, x) => a + (+x.m || 0), 0);
@@ -272,7 +273,7 @@ function runEngine(i, useReal) {
     const metasMes = E ? E.met : i.metas.reduce((a, g) => a + metaAporte(g, m), 0);
     const gastosM = E ? E.gas : gastos;
     const tdcDue = cardPrev; // tarjeta: déficits anteriores financiados con la TDC + lo que no se pagó de ella
-    const tdcPaid = E && E.tdcReg ? E.tdc : tdcDue;
+    const tdcPaid = E && E.tdcReg ? E.tdc : E && E.closed ? 0 : tdcDue;
     const tarjeta = tdcPaid;
     const operativo = salario + cobros - gastosM - deuda - metasMes - tdcPaid; // = "Resultado del mes" de Cargar
     const tgtR = salario * (i.reserva[m] || 0), tgtA = salario * (i.ahorro[m] || 0);
@@ -543,30 +544,48 @@ function GBars({ groups, color, lblA, lblB }) {
 }
 // Arrastre: lo que se proyectó pagar/cobrar en meses anteriores y no se cumplió,
 // se suma a lo que corresponde este mes. Solo cuenta meses ya registrados.
+// Mes del calendario de hoy, en el índice del horizonte (0 = Sep 2026)
+function calIdx() { const d = new Date(); return Math.max(0, Math.min(H - 1, (d.getFullYear() - 2026) * 12 + d.getMonth() - START)); }
+function monthHasReg(mm) {
+  if (!mm) return false;
+  if (mm.ingreso != null || mm.tdc != null) return true;
+  if (["g", "d", "c", "mt"].some((q) => mm[q] && Object.keys(mm[q]).length)) return true;
+  return ["dp", "cp"].some((q) => mm[q] && Object.values(mm[q]).some((o) => o && Object.keys(o).length));
+}
+// Los meses ANTERIORES a este están cerrados: lo que quedó sin registrar cuenta como no pagado
+const _openCache = new WeakMap();
+function openFrom(actuals) {
+  if (!actuals) return calIdx();
+  if (_openCache.has(actuals)) return _openCache.get(actuals);
+  let last = -1; Object.keys(actuals).forEach((k) => { if (monthHasReg(actuals[k])) last = Math.max(last, +k); });
+  const v = Math.max(calIdx(), last); _openCache.set(actuals, v); return v;
+}
 function carryProv(actuals, item, listKey, key, prov, uptoM) {
-  let c = 0;
+  let c = 0; const B = openFrom(actuals);
   for (let k = 0; k < uptoM; k++) {
     const mm = actuals && actuals[k];
     const grp = mm && mm[key] && mm[key][item.id];
-    if (grp && grp[prov] !== undefined) {
-      const pr = ((item[listKey] || [])[k] || []).filter((p) => p.prov === prov).reduce((a, p) => a + (+p.monto || 0), 0);
-      c += pr - (+grp[prov] || 0);
-    }
+    const pr = ((item[listKey] || [])[k] || []).filter((p) => p.prov === prov).reduce((a, p) => a + (+p.monto || 0), 0);
+    if (grp && grp[prov] !== undefined) c += pr - (+grp[prov] || 0);
+    else if (k < B) c += pr; // mes cerrado sin registrar: no se pagó
+    else { const aju = Math.max(0, pr + c); c += pr - aju; } // mes abierto: se estima que se paga lo que corresponde, atrasos incluidos
     // Si en ese mes se condonó el saldo, el arrastre se cierra ahí
     if (mm && mm.wv && mm.wv[key] && mm.wv[key][item.id] && mm.wv[key][item.id][prov]) c = 0;
   }
   return c;
 }
 function carryMeta(actuals, g, uptoM) {
-  let c = 0;
+  let c = 0; const B = openFrom(actuals);
   for (let k = 0; k < uptoM; k++) {
     const mm = actuals && actuals[k];
     if (mm && mm.mt && mm.mt[g.id] !== undefined) c += metaAporte(g, k) - (+mm.mt[g.id] || 0);
+    else if (k < B) c += metaAporte(g, k); // mes cerrado sin registrar: no se apartó
+    else { const base = metaAporte(g, k), aju = Math.max(0, base + c); c += base - aju; } // mes abierto: se estima al día
     if (mm && mm.wv && mm.wv.mt && mm.wv.mt[g.id]) c = 0;
   }
   return c;
 }
-function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive, onlyPend }) {
+function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive, onlyPend, closed }) {
   const key = kind === "d" ? "dp" : "cp";
   const listKey = kind === "d" ? "pagosProv" : "cobrosProv";
   const totKey = kind === "d" ? "pagos" : "cobros";
@@ -619,7 +638,7 @@ function RealProvTabla({ items, kind, rm, actuals, setActualProv, setWaive, only
                     </td>
                     <td><button title="Usar lo proyectado" onClick={() => setActualProv(rm, kind, it.id, n, pr)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 4, fontSize: 12, padding: "1px 6px" }}>=</button></td>
                     <td><input className="si" style={{ width: 82 }} type="number" placeholder="—" value={reg ? realFor(n) : ""} onChange={(e) => setActualProv(rm, kind, it.id, n, e.target.value === "" ? null : +e.target.value)} /></td>
-                    <td className="mono">{reg ? <RealDelta pos real={re} proj={pr} /> : <span style={{ color: P.caution, fontSize: 11 }}>pendiente</span>}</td>
+                    <td className="mono">{reg ? <RealDelta pos real={re} proj={pr} /> : <span style={{ color: P.caution, fontSize: 11 }}>{closed ? "sin registrar: no pagado" : "pendiente"}</span>}</td>
                   </tr>
                 );
               })}
@@ -810,6 +829,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   const [personD, setPersonD] = useState("__all__"), [personC, setPersonC] = useState("__all__"), [personM, setPersonM] = useState("__all__");
   const A = (i.actuals && i.actuals[rm]) || {};
   const nextM = Math.min(rm + 1, H - 1);
+  const openM = openFrom(i.actuals), closed = rm < openM;
   const scOf = (m) => (i.horizonte[m] ? i.horizonte[m].sc : "e2");
   const escName = (m) => (i.escNombres && i.escNombres[scOf(m)]) || SCL[scOf(m)];
   const projIng = +i.ingreso[scOf(rm)] || 0;
@@ -837,15 +857,15 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   const metaRowsM = (m) => { const mm = (i.actuals && i.actuals[m]) || {}; return i.metas.map((g) => { const base = metaAporte(g, m), carry = carryMeta(i.actuals, g, m), aju = Math.max(0, base + carry), reg = !!(mm.mt && mm.mt[g.id] !== undefined), waived = !!(mm.wv && mm.wv.mt && mm.wv.mt[g.id]); return { g, n: g.n, base, carry, aju, reg, waived, real: reg ? +mm.mt[g.id] || 0 : null }; }).filter((r) => r.aju > 0 || r.reg || Math.abs(r.carry) > 1); };
   const mRows = metaRowsM(rm);
   const fRm = rolling.flujo[rm] || {};
-  const tdcDue = fRm.tdcDue || 0, tdcReg = A.tdc !== undefined && A.tdc !== null, tdcReal = tdcReg ? +A.tdc || 0 : tdcDue;
+  const tdcDue = fRm.tdcDue || 0, tdcReg = A.tdc !== undefined && A.tdc !== null, tdcReal = tdcReg ? +A.tdc || 0 : closed ? 0 : tdcDue;
   const hasTdc = tdcDue > 0.5 || tdcReg, prevM = Math.max(0, rm - 1);
   const gRows = i.gastosItems.map((g) => { const reg = !!(A.g && A.g[g.id] !== undefined); return { id: g.id, n: g.n, proj: +g.m || 0, reg, real: reg ? +A.g[g.id] || 0 : +g.m || 0 }; });
   const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
   // Lo pendiente cuenta al valor del plan, en todos los rubros por igual
   const pG = sum(gRows, (r) => r.proj), eG = sum(gRows, (r) => r.real);
-  const pD = sum(dRows, (r) => r.aju) + (hasTdc ? tdcDue : 0), eD = sum(dRows, (r) => (r.reg ? r.real : r.aju)) + (hasTdc ? tdcReal : 0);
-  const pC = sum(cRows, (r) => r.aju), eC = sum(cRows, (r) => (r.reg ? r.real : r.aju));
-  const pM = sum(mRows, (r) => r.aju), eM = sum(mRows, (r) => (r.reg ? r.real : r.aju));
+  const pD = sum(dRows, (r) => r.aju) + (hasTdc ? tdcDue : 0), eD = sum(dRows, (r) => (r.reg ? r.real : closed ? 0 : r.aju)) + (hasTdc ? tdcReal : 0);
+  const pC = sum(cRows, (r) => r.aju), eC = sum(cRows, (r) => (r.reg ? r.real : closed ? 0 : r.aju));
+  const pM = sum(mRows, (r) => r.aju), eM = sum(mRows, (r) => (r.reg ? r.real : closed ? 0 : r.aju));
   const projRes = projIng + pC - pG - pD - pM, estRes = realIng + eC - eG - eD - eM;
   const total = 1 + gRows.length + dRows.length + cRows.length + mRows.length + (hasTdc ? 1 : 0);
   const done = (ingReg ? 1 : 0) + gRows.filter((r) => r.reg).length + dRows.filter((r) => r.reg).length + cRows.filter((r) => r.reg).length + mRows.filter((r) => r.reg).length + (hasTdc && tdcReg ? 1 : 0);
@@ -855,20 +875,20 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
   const ins = [];
   if (ingReg && realIng < projIng - 1) ins.push({ k: "bad", t: `Ingresaste ${money(projIng - realIng)} menos de lo esperado.` });
   if (ingReg && realIng > projIng + 1) ins.push({ k: "good", t: `Ingresaste ${money(realIng - projIng)} más de lo esperado.` });
-  const shortD = dRows.filter((r) => r.reg && !r.waived && r.real < r.aju - 1).sort((a, b) => (b.aju - b.real) - (a.aju - a.real));
+  const shortD = dRows.filter((r) => (r.reg || closed) && !r.waived && (r.real || 0) < r.aju - 1).sort((a, b) => (b.aju - b.real) - (a.aju - a.real));
   shortD.slice(0, 3).forEach((r) => ins.push({ k: "bad", t: `No le pagaste ${money(r.aju - r.real)} a ${r.n} (${r.item.n}). Pasa a ${mlabel(nextM)} como pendiente.` }));
   if (shortD.length > 3) ins.push({ k: "bad", t: `Y ${shortD.length - 3} pagos más quedaron pendientes.` });
   dRows.filter((r) => r.reg && r.waived && r.real < r.aju - 1).forEach((r) => ins.push({ k: "info", t: `Cerraste el saldo con ${r.n} (${r.item.n}): los ${money(r.aju - r.real)} restantes no pasan a ${mlabel(nextM)}.` }));
   cRows.filter((r) => r.reg && r.waived && r.real < r.aju - 1).forEach((r) => ins.push({ k: "info", t: `Cerraste el saldo con ${r.n} (${r.item.n}): los ${money(r.aju - r.real)} que faltaban ya no se esperan.` }));
   dRows.filter((r) => r.reg && r.real > r.aju + 1).slice(0, 2).forEach((r) => ins.push({ k: "good", t: `Le pagaste ${money(r.real - r.aju)} de más a ${r.n}: se descuenta del mes que viene.` }));
-  const shortC = cRows.filter((r) => r.reg && !r.waived && r.real < r.aju - 1).sort((a, b) => (b.aju - b.real) - (a.aju - a.real));
+  const shortC = cRows.filter((r) => (r.reg || closed) && !r.waived && (r.real || 0) < r.aju - 1).sort((a, b) => (b.aju - b.real) - (a.aju - a.real));
   shortC.slice(0, 3).forEach((r) => ins.push({ k: "warn", t: `${r.n} no te pagó ${money(r.aju - r.real)} (${r.item.n}). Lo esperás en ${mlabel(nextM)}.` }));
   cRows.filter((r) => r.reg && r.real > r.aju + 1).slice(0, 2).forEach((r) => ins.push({ k: "good", t: `${r.n} te pagó ${money(r.real - r.aju)} más de lo previsto.` }));
   gRows.filter((r) => r.reg && r.real > r.proj + 1).sort((a, b) => (b.real - b.proj) - (a.real - a.proj)).slice(0, 2).forEach((r) => ins.push({ k: "warn", t: `Gastaste ${money(r.real - r.proj)} más de lo previsto en ${r.n}.` }));
   if (tdcReg && tdcReal < tdcDue - 1) ins.push({ k: "bad", t: `Pagaste ${money(tdcDue - tdcReal)} menos de la tarjeta: queda como deuda para ${mlabel(nextM)}.` });
   if ((fRm.operativo || 0) < -1 && rm < H - 1) ins.push({ k: "bad", t: `${mlabel(rm)} cierra con déficit de ${money(-fRm.operativo)}: se financia con la tarjeta y se paga en ${mlabel(nextM)}.` });
   if ((fRm.sobrante || 0) > 1) ins.push({ k: "good", t: `Te sobran ${money(fRm.sobrante)} después de impuestos y ahorro: van a tu reserva.` });
-  const shortM = mRows.filter((r) => r.reg && !r.waived && r.real < r.aju - 1);
+  const shortM = mRows.filter((r) => (r.reg || closed) && !r.waived && (r.real || 0) < r.aju - 1);
   shortM.forEach((r) => ins.push({ k: "warn", t: `Apartaste ${money(r.aju - r.real)} menos de lo previsto para ${r.n}. Se suma a ${mlabel(nextM)} para llegar a tiempo.` }));
   mRows.filter((r) => r.reg && r.real > r.aju + 1).forEach((r) => ins.push({ k: "good", t: `Apartaste ${money(r.real - r.aju)} de más para ${r.n}: el mes que viene te toca menos.` }));
   mRows.filter((r) => r.reg && r.waived && r.real < r.aju - 1).forEach((r) => ins.push({ k: "info", t: `Cerraste el saldo de ${r.n}: los ${money(r.aju - r.real)} que faltaban no pasan a ${mlabel(nextM)}.` }));
@@ -1133,6 +1153,8 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
             ))}
           </div>
           <span style={{ fontSize: 13, color: P.muted }}>Tocá <b>=</b> si fue igual al plan, o escribí el monto real. Si fue cero, escribí 0 para que no quede pendiente.</span>
+          {closed && <div style={{ fontSize: 13, background: "var(--warn-soft)", color: P.ink, borderRadius: 10, padding: "10px 12px" }}><b>Este mes ya está cerrado.</b> Los pagos, cobros y aportes que no registres cuentan como <b>no hechos</b> y pasan al mes siguiente.</div>}
+          {!closed && rm > openM && <div style={{ fontSize: 13, background: "var(--pri-soft)", color: P.ink, borderRadius: 10, padding: "10px 12px" }}>Cuando registres el primer dato de {mlabel(rm)}, los meses anteriores se cierran: lo que quedó sin registrar cuenta como <b>no pagado</b> y se suma acá.</div>}
         </section>
 
         {!(onlyPend && ingReg) && (
@@ -1157,16 +1179,16 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
                 <td className="mono" style={{ color: P.muted }}>{money(tdcDue)}</td>
                 <td><button title="Pagué lo sugerido" onClick={() => setActualTdc(rm, Math.round(tdcDue * 100) / 100)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 6, fontSize: 13, padding: "4px 9px" }}>=</button></td>
                 <td><input className="si" style={{ width: 104 }} type="number" placeholder="—" aria-label="Pago real de tarjeta" value={tdcReg ? A.tdc : ""} onChange={(e) => setActualTdc(rm, e.target.value === "" ? null : +e.target.value)} /></td>
-                <td className="mono">{tdcReg ? <RealDelta pos real={tdcReal} proj={tdcDue} /> : <span style={{ color: P.caution, fontSize: 12 }}>pendiente</span>}</td>
+                <td className="mono">{tdcReg ? <RealDelta pos real={tdcReal} proj={tdcDue} /> : <span style={{ color: P.caution, fontSize: 12 }}>{closed ? "sin registrar: no pagado" : "pendiente"}</span>}</td>
               </tr>
             </tbody></table></div>
           )}
-          <div className="tblw"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} onlyPend={onlyPend} /></div>
+          <div className="tblw"><RealProvTabla items={i.deudas} kind="d" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} onlyPend={onlyPend} closed={closed} /></div>
           {dRows.length === 0 && !hasTdc && <div style={{ fontSize: 13, color: P.muted }}>Sin pagos programados este mes.</div>}
           <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>El plan incluye el <b style={{ color: P.caution }}>arrastre</b>: lo que quedó sin pagar en meses ya cargados. Si acordaste pagar menos, usá <b>cerrar saldo</b>.</div>
         </Panel>
         <Panel eb="Cuentas por cobrar" title="Cobros del mes">
-          <div className="tblw"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} onlyPend={onlyPend} /></div>
+          <div className="tblw"><RealProvTabla items={i.porCobrar} kind="c" rm={rm} actuals={i.actuals} setActualProv={setActualProv} setWaive={setWaive} onlyPend={onlyPend} closed={closed} /></div>
           {cRows.length === 0 && <div style={{ fontSize: 13, color: P.muted }}>Sin cobros programados este mes.</div>}
           <div style={{ fontSize: 12, color: P.muted, marginTop: 8 }}>Lo que no te pagaron en meses ya cargados se suma acá. Si se acordó cobrar menos, usá <b>cerrar saldo</b>.</div>
         </Panel>
@@ -1186,7 +1208,7 @@ function RealView({ i, rm, setRm, setActual, setActualIng, setActualProv, setWai
                       <td className="mono" style={{ color: P.muted }}>{money(r.aju)}{Math.abs(r.carry) > 1 && <div style={{ fontSize: 11, color: P.caution }}>{money(r.base)} prog. {r.carry > 0 ? "+" : "−"} {money(Math.abs(r.carry))} arr.</div>}</td>
                       <td><button title="Aparté lo previsto" onClick={() => setActualMeta(rm, r.g.id, r.aju)} style={{ cursor: "pointer", border: `1px solid ${P.line}`, background: P.panel, color: P.muted, borderRadius: 6, fontSize: 13, padding: "4px 9px" }}>=</button></td>
                       <td><input className="si" style={{ width: 104 }} type="number" placeholder="—" aria-label={`Aporte real a ${r.n}`} value={r.reg ? r.real : ""} onChange={(e) => setActualMeta(rm, r.g.id, e.target.value === "" ? null : +e.target.value)} /></td>
-                      <td className="mono">{r.reg ? <RealDelta pos real={r.real} proj={r.aju} /> : <span style={{ color: P.caution, fontSize: 12 }}>pendiente</span>}</td>
+                      <td className="mono">{r.reg ? <RealDelta pos real={r.real} proj={r.aju} /> : <span style={{ color: P.caution, fontSize: 12 }}>{closed ? "sin registrar: no apartado" : "pendiente"}</span>}</td>
                     </tr>
                   );
                 })}
